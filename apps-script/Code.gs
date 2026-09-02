@@ -40,14 +40,23 @@ function doPost(e) {
       .filter(function (x) { return x && String(x).trim(); })
       .join(" ").trim();
     folderName = folderName.replace(/[\/\\]/g, "-") || ("งานไม่ระบุชื่อ " + new Date().getTime());
-    var jobFolder = getOrCreateFolder(parent, folderName);
+
+    // ถ้าเป็นการแก้ไขงานเดิม (id เดิมมีในดัชนี) ให้ใช้โฟลเดอร์เดิมแล้วเปลี่ยนชื่อ
+    var existing = findIndexEntry(parent, data.id);
+    var jobFolder;
+    if (existing && existing.folderId) {
+      try { jobFolder = DriveApp.getFolderById(existing.folderId); if (jobFolder.getName() !== folderName) jobFolder.setName(folderName); }
+      catch (e) { jobFolder = getOrCreateFolder(parent, folderName); }
+    } else {
+      jobFolder = getOrCreateFolder(parent, folderName);
+    }
 
     // batch id กันไฟล์ซ้ำเวลากดซิงค์ใหม่ (idempotent)
     var batch = String(data.created || new Date().toISOString()).replace(/[^0-9A-Za-z]/g, "").slice(0, 16);
 
-    // ---- ไฟล์สรุปรายงาน + ข้อมูลดิบ ----
-    createIfMissing(jobFolder, "รายงาน_" + batch + ".txt", buildSummary(data), "text/plain");
-    createIfMissing(jobFolder, "report_" + batch + ".json", JSON.stringify(data, null, 2), "application/json");
+    // ---- ไฟล์สรุปรายงาน + ข้อมูลดิบ (เขียนทับเสมอ เพื่อรองรับการแก้ไข) ----
+    writeFile(jobFolder, "รายงาน_" + batch + ".txt", buildSummary(data), "text/plain");
+    writeFile(jobFolder, "report_" + batch + ".json", JSON.stringify(data, null, 2), "application/json");
 
     // ---- รูปงาน ----
     (data.workImages || []).forEach(function (url, i) {
@@ -109,9 +118,23 @@ function summaryEntry(d, folder) {
     connectors: d.connectors || [], cables: d.cables || [], loops: d.loops || [],
     spliceOfc: d.spliceOfc || "", splicePoints: d.splicePoints || "",
     removeCable: d.removeCable || "no", removeDetail: d.removeDetail || "", detail: d.detail || "",
-    workCount: (d.workImages || []).length, removeCount: (d.removeImages || []).length,
+    workCount: (d.workCount != null ? d.workCount : (d.workImages || []).length),
+    removeCount: (d.removeCount != null ? d.removeCount : (d.removeImages || []).length),
+    editLog: d.editLog || [],
     synced: true
   };
+}
+
+function findIndexEntry(parent, id) {
+  if (id == null) return null;
+  var idx = readIndex(parent), key = String(id);
+  return idx.filter(function (x) { return String(x.id) === key; })[0] || null;
+}
+
+function writeFile(folder, name, content, mime) {
+  var it = folder.getFilesByName(name);
+  if (it.hasNext()) it.next().setContent(content);
+  else folder.createFile(name, content, mime);
 }
 
 function readIndex(parent) {
@@ -195,8 +218,19 @@ function buildSummary(d) {
   if (d.removeCable === "yes" && d.removeDetail) L.push("  " + d.removeDetail);
   L.push("");
   if (d.detail) { L.push("[รายละเอียดการทำงาน]"); L.push(d.detail); L.push(""); }
-  L.push("รูปงาน " + ((d.workImages || []).length) + " รูป" +
-    (d.removeCable === "yes" ? ", รูปรื้อกลับ " + ((d.removeImages || []).length) + " รูป" : ""));
+  var wc = (d.workCount != null ? d.workCount : (d.workImages || []).length);
+  var rc = (d.removeCount != null ? d.removeCount : (d.removeImages || []).length);
+  L.push("รูปงาน " + wc + " รูป" + (d.removeCable === "yes" ? ", รูปรื้อกลับ " + rc + " รูป" : ""));
+
+  if ((d.editLog || []).length) {
+    L.push("");
+    L.push("=======================================");
+    L.push("[ประวัติการแก้ไข]");
+    d.editLog.forEach(function (ed) {
+      L.push("• แก้ไขวันที่ " + (ed.date || "-"));
+      (ed.changes || []).forEach(function (c) { L.push("    - " + c); });
+    });
+  }
   return L.join("\n");
 }
 

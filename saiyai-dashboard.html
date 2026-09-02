@@ -116,6 +116,11 @@
 
   /* ---------- Form ---------- */
   .form { display: flex; flex-direction: column; gap: 18px; max-width: 940px; }
+  .edit-banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px;
+    background: var(--warn-soft); border: 1px solid var(--warn); color: var(--warn); font-size: 13.5px; font-weight: 500; }
+  .edit-banner b { color: var(--ink); }
+  .edit-banner .btn { margin-left: auto; }
+  .edit-banner svg { flex: none; }
   .fsec { padding: 20px 22px; }
   .fsec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
   .fsec-num { width: 28px; height: 28px; flex: none; border-radius: 8px; background: var(--accent-soft);
@@ -327,6 +332,12 @@
     <section class="view active" id="view-daily">
       <form class="form" id="reportForm" autocomplete="off">
 
+        <div class="edit-banner" id="editBanner" hidden>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+          <span>กำลังแก้ไขรายงาน <b id="editBannerCode"></b></span>
+          <button type="button" class="btn btn-ghost btn-sm" id="cancelEditBtn">ยกเลิกการแก้ไข</button>
+        </div>
+
         <!-- 1 & 2 -->
         <div class="card fsec">
           <div class="fsec-head">
@@ -404,12 +415,14 @@
           <div class="conditional" id="removeCond">
             <div class="field" style="margin-bottom:14px;"><label>เส้นที่นำกลับมา</label>
               <textarea name="removeDetail" placeholder="ระบุเส้น / ชนิดสาย / ความยาวที่นำกลับ"></textarea></div>
-            <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;">ภาพสายที่รื้อกลับ</label>
-            <div class="uploader" data-uploader="remove">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-              <p>แตะเพื่อเลือกรูป <small>หรือถ่ายจากกล้อง</small></p>
+            <div id="removeImageBlock">
+              <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;">ภาพสายที่รื้อกลับ</label>
+              <div class="uploader" data-uploader="remove">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+                <p>แตะเพื่อเลือกรูป <small>หรือถ่ายจากกล้อง</small></p>
+              </div>
+              <div class="thumbs" data-thumbs="remove"></div>
             </div>
-            <div class="thumbs" data-thumbs="remove"></div>
           </div>
         </div>
 
@@ -425,7 +438,7 @@
         </div>
 
         <!-- 9 ภาพงาน -->
-        <div class="card fsec">
+        <div class="card fsec" id="workImageSection">
           <div class="fsec-head">
             <div class="fsec-num">8</div>
             <div><h3 class="fsec-title">ภาพงาน</h3><p class="fsec-desc">อัปโหลดรูปที่ถ่ายระหว่างดำเนินงานได้หลายรูป</p></div>
@@ -439,9 +452,9 @@
 
         <div class="form-actions">
           <button type="button" class="btn btn-ghost" id="clearBtn">ล้างฟอร์ม</button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2zM17 21v-8H7v8M7 3v5h8"/></svg>
-            บันทึกรายงาน
+            <span id="submitLabel">บันทึกรายงาน</span>
           </button>
         </div>
       </form>
@@ -671,11 +684,9 @@
   function loadReports() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch (e) { return []; } }
   function saveReports(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
 
-  $("#reportForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var rep = {
-      id: Date.now(),
-      created: new Date().toISOString(),
+  // เก็บเฉพาะฟิลด์ข้อมูล (ไม่รวมรูป/id) ใช้ร่วมกันทั้งบันทึกใหม่และแก้ไข
+  function collectFormData() {
+    return {
       jobCode: fval("jobCode"), jobName: fval("jobName"),
       jobDate: fval("jobDate"), jobTime: fval("jobTime"),
       connectors: readRows($("#connectorRows"), "connector"),
@@ -684,15 +695,22 @@
       spliceOfc: fval("spliceOfc"), splicePoints: fval("splicePoints"),
       removeCable: $('input[name="removeCable"]:checked').value,
       removeDetail: fval("removeDetail"),
-      removeImages: imageStore.remove.slice(),
-      removeCount: imageStore.remove.length,
-      detail: fval("detail"),
-      workImages: imageStore.work.slice(),
-      workCount: imageStore.work.length,
-      synced: false,
-      driveFolderUrl: ""
+      detail: fval("detail")
     };
-    if (!rep.jobCode && !rep.jobName) { toast("กรุณากรอกรหัสงานหรือสถานที่ปฏิบัติงานก่อนบันทึก"); return; }
+  }
+
+  var editingId = null, editingOriginal = null;
+
+  $("#reportForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (editingId != null) { saveEdit(); return; }
+    var data = collectFormData();
+    if (!data.jobCode && !data.jobName) { toast("กรุณากรอกรหัสงานหรือสถานที่ปฏิบัติงานก่อนบันทึก"); return; }
+    var rep = Object.assign({ id: Date.now(), created: new Date().toISOString() }, data, {
+      removeImages: imageStore.remove.slice(), removeCount: imageStore.remove.length,
+      workImages: imageStore.work.slice(), workCount: imageStore.work.length,
+      editLog: [], synced: false, driveFolderUrl: ""
+    });
     var list = loadReports(); list.unshift(rep);
     try { saveReports(list); }
     catch (err) { toast("พื้นที่จัดเก็บเต็ม — ลองลดจำนวนรูปหรือลบรายงานเก่า"); return; }
@@ -702,6 +720,105 @@
     if (driveUrl()) { toast("กำลังอัปโหลดขึ้น Google Drive…"); syncReport(rep.id); }
     else { toast("บันทึกในเครื่องแล้ว ✓ (ยังไม่ได้ตั้งค่า Google Drive)"); }
   });
+
+  /* ---------- edit ---------- */
+  var FIELD_LABELS = [
+    ["jobCode", "รหัสเลขงาน"], ["jobName", "สถานที่ปฏิบัติงาน"], ["jobDate", "วันที่"], ["jobTime", "เวลา"],
+    ["spliceOfc", "จุดตัดต่อ OFC"], ["splicePoints", "จำนวนจุดตัดต่อ"],
+    ["removeCable", "การรื้อสายกลับ"], ["removeDetail", "เส้นที่รื้อกลับ"], ["detail", "รายละเอียดการทำงาน"]
+  ];
+  function trunc(s) { s = (s == null ? "" : String(s)).replace(/\s+/g, " ").trim(); return s.length > 60 ? s.slice(0, 60) + "…" : s; }
+  function rcLabel(v) { return v === "yes" ? "มีรื้อสายกลับ" : "ไม่มีสายรื้อกลับ"; }
+  function describeChanges(o, n) {
+    var out = [];
+    FIELD_LABELS.forEach(function (p) {
+      var a = (o[p[0]] || "") + "", b = (n[p[0]] || "") + "";
+      if (a !== b) {
+        if (p[0] === "removeCable") { a = rcLabel(a); b = rcLabel(b); }
+        out.push(p[1] + ": “" + (trunc(a) || "-") + "” → “" + (trunc(b) || "-") + "”");
+      }
+    });
+    [["connectors", "หัวต่อ"], ["cables", "พาดสายใหม่"], ["loops", "ร่นสาย (Loop)"]].forEach(function (p) {
+      if (JSON.stringify(o[p[0]] || []) !== JSON.stringify(n[p[0]] || [])) {
+        out.push(p[1] + ": แก้ไขรายการ (" + (o[p[0]] || []).length + " → " + (n[p[0]] || []).length + " รายการ)");
+      }
+    });
+    return out;
+  }
+  function editStamp() {
+    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function loadReportIntoForm(rep) {
+    editingId = rep.id;
+    editingOriginal = JSON.parse(JSON.stringify(rep));
+    function set(name, v) { var el = $('[name="' + name + '"]'); if (el) el.value = v || ""; }
+    set("jobCode", rep.jobCode); set("jobName", rep.jobName); set("jobDate", rep.jobDate); set("jobTime", rep.jobTime);
+    set("spliceOfc", rep.spliceOfc); set("splicePoints", rep.splicePoints); set("detail", rep.detail); set("removeDetail", rep.removeDetail);
+    var yes = rep.removeCable === "yes";
+    $$('input[name="removeCable"]').forEach(function (r) { r.checked = (r.value === (yes ? "yes" : "none")); });
+    $$("#removeChoice label").forEach(function (l) { l.classList.toggle("sel", $("input", l).checked); });
+    $("#removeCond").classList.toggle("show", yes);
+    function setVal(el, sel, v) { var i = $(sel, el); if (i) i.value = v || ""; }
+    ["#connectorRows", "#cableRows", "#loopRows"].forEach(function (s) { $(s).innerHTML = ""; });
+    (rep.connectors && rep.connectors.length ? rep.connectors : [null]).forEach(function (c) { var el = addRow("connector"); if (c) { setVal(el, ".f-name", c.name); setVal(el, ".f-coord", c.coord); } });
+    (rep.cables && rep.cables.length ? rep.cables : [null]).forEach(function (c) { var el = addRow("cable"); if (c) { setVal(el, ".f-ofc", c.ofc); setVal(el, ".f-drum", c.drum); setVal(el, ".f-ml", c.ml); setVal(el, ".f-len", c.len); } });
+    (rep.loops && rep.loops.length ? rep.loops : [null]).forEach(function (c) { var el = addRow("loop"); if (c) { setVal(el, ".f-ml", c.ml); setVal(el, ".f-len", c.len); } });
+    imageStore.work = []; imageStore.remove = []; renderThumbs("work"); renderThumbs("remove");
+    $("#workImageSection").hidden = true; $("#removeImageBlock").hidden = true;
+    $("#editBanner").hidden = false;
+    $("#editBannerCode").textContent = ((rep.jobCode || "") + " " + (rep.jobName || "")).trim() || "(ไม่ระบุ)";
+    $("#submitLabel").textContent = "บันทึกการแก้ไข";
+  }
+  function clearEditState() {
+    editingId = null; editingOriginal = null;
+    $("#editBanner").hidden = true;
+    $("#submitLabel").textContent = "บันทึกรายงาน";
+    $("#workImageSection").hidden = false; $("#removeImageBlock").hidden = false;
+  }
+  $("#cancelEditBtn").addEventListener("click", function () { clearEditState(); resetForm(); toast("ยกเลิกการแก้ไขแล้ว"); });
+
+  function saveEdit() {
+    var orig = editingOriginal;
+    var data = collectFormData();
+    if (!data.jobCode && !data.jobName) { toast("กรุณากรอกรหัสงานหรือสถานที่ปฏิบัติงาน"); return; }
+    var newRep = Object.assign({}, orig, data, {
+      id: orig.id, created: orig.created,
+      workCount: orig.workCount || 0, removeCount: orig.removeCount || 0,
+      workImages: orig.workImages || [], removeImages: orig.removeImages || [],
+      synced: orig.synced, driveFolderUrl: orig.driveFolderUrl || orig.folderUrl || ""
+    });
+    var changes = describeChanges(orig, newRep);
+    if (!changes.length) { toast("ไม่มีการเปลี่ยนแปลง"); return; }
+    newRep.editLog = (orig.editLog || []).concat([{ date: editStamp(), changes: changes }]);
+    var l = loadReports().filter(function (x) { return String(x.id) !== String(orig.id); });
+    l.unshift(newRep);
+    try { saveReports(l); } catch (e) {}
+    var wasSynced = orig.synced && driveUrl();
+    clearEditState(); resetForm();
+    refreshSaved(); go("saved");
+    if (wasSynced) { toast("กำลังบันทึกการแก้ไขขึ้น Drive…"); uploadEdit(newRep); }
+    else { toast("บันทึกการแก้ไขแล้ว ✓"); }
+  }
+  function uploadEdit(rep) {
+    markSyncing(rep.id, true);
+    var payload = {
+      id: rep.id, jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
+      connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
+      spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
+      removeCable: rep.removeCable, removeDetail: rep.removeDetail, detail: rep.detail,
+      workImages: [], removeImages: [], workCount: rep.workCount || 0, removeCount: rep.removeCount || 0,
+      editLog: rep.editLog || []
+    };
+    uploadToDrive(payload, function (res) {
+      markSyncing(rep.id, false);
+      if (res && res.ok) {
+        var l = loadReports(), it = l.filter(function (x) { return String(x.id) === String(rep.id); })[0];
+        if (it) { it.driveFolderUrl = res.folderUrl || it.driveFolderUrl; try { saveReports(l); } catch (e) {} }
+        refreshSaved(); toast("บันทึกการแก้ไขขึ้น Drive แล้ว ✓");
+      } else { refreshSaved(); toast("บันทึกแก้ไขในเครื่องแล้ว แต่ Drive ไม่สำเร็จ ลองกดซิงค์อีกครั้ง"); }
+    });
+  }
 
   function markSyncing(id, on) { if (on) syncingIds[id] = true; else delete syncingIds[id]; refreshSaved(); }
   function syncReport(id) {
@@ -716,7 +833,7 @@
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
       removeCable: rep.removeCable, removeDetail: rep.removeDetail,
-      detail: rep.detail,
+      detail: rep.detail, editLog: rep.editLog || [],
       workImages: rep.workImages || [], removeImages: rep.removeImages || []
     };
     uploadToDrive(payload, function (res) {
@@ -735,6 +852,7 @@
   }
 
   function resetForm() {
+    clearEditState();
     $("#reportForm").reset();
     setDateTimeDefaults();
     imageStore.work = []; imageStore.remove = [];
@@ -849,11 +967,13 @@
         : (r.synced ? '<span class="chip" style="color:var(--good);border-color:var(--good)">☁ ซิงค์แล้ว</span>'
                     : '<span class="chip" style="color:var(--ink-faint)">◌ ยังไม่ซิงค์</span>');
       stats.unshift(syncChip);
+      if (r.editLog && r.editLog.length) stats.push('<span class="chip" style="color:var(--warn);border-color:var(--warn)">🖊 แก้ไข ' + r.editLog.length + ' ครั้ง</span>');
 
       var media = thumbs ? '<div class="rc-thumbs">' + thumbs + '</div>'
         : (r.synced ? '<div class="rc-meta" style="margin-top:10px;">รูปถูกจัดเก็บบน Google Drive แล้ว</div>' : '');
 
       var actions = '<button class="btn btn-ghost btn-sm" data-view-report="' + r.id + '">ดูรายละเอียด</button>';
+      actions += '<button class="btn btn-ghost btn-sm" data-edit-report="' + r.id + '">แก้ไข</button>';
       if (r.synced && r.driveFolderUrl) actions += '<a class="btn btn-ghost btn-sm" href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดใน Drive</a>';
       else if (!isSyncing) actions += '<button class="btn btn-primary btn-sm" data-sync-report="' + r.id + '">อัปโหลดขึ้น Drive</button>';
       actions += '<button class="btn btn-danger btn-sm" data-del-report="' + r.id + '">ลบ</button>';
@@ -870,6 +990,12 @@
   document.addEventListener("click", function (e) {
     var v = e.target.closest("[data-view-report]");
     if (v) { openReport(v.getAttribute("data-view-report")); return; }
+    var ed = e.target.closest("[data-edit-report]");
+    if (ed) {
+      var er = viewReports.filter(function (x) { return String(x.id) === String(ed.getAttribute("data-edit-report")); })[0];
+      if (er) { loadReportIntoForm(er); go("daily"); toast("โหลดข้อมูลมาแก้ไข — แก้แล้วกด “บันทึกการแก้ไข”"); }
+      return;
+    }
     var s = e.target.closest("[data-sync-report]");
     if (s) { syncReport(s.getAttribute("data-sync-report")); return; }
     var d = e.target.closest("[data-del-report]");
@@ -932,6 +1058,14 @@
     if (r.detail) { b += '<div class="rp-h">รายละเอียดการทำงาน</div><div class="rp-sub">' + esc(r.detail).replace(/\n/g, "<br>") + '</div>'; }
     if ((r.workImages || []).length) { b += '<div class="rp-h">ภาพงาน (' + r.workImages.length + ')</div><div class="rp-gallery">' + r.workImages.map(function (s) { return '<img src="' + s + '">'; }).join("") + '</div>'; }
     else if (r.workCount && r.synced) b += '<div class="rp-h">ภาพงาน (' + r.workCount + ')</div><div class="rp-sub">รูปทั้งหมดถูกจัดเก็บบน Google Drive แล้ว — <a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดดู ↗</a></div>';
+
+    if ((r.editLog || []).length) {
+      b += '<div class="rp-h">🖊 ประวัติการแก้ไข</div>';
+      r.editLog.forEach(function (ed) {
+        b += '<div class="rp-sub" style="font-weight:600;color:var(--ink);margin-top:8px;">แก้ไขวันที่ ' + esc(ed.date || "-") + '</div>';
+        (ed.changes || []).forEach(function (c) { b += '<div class="rp-sub" style="padding-left:14px;">• ' + esc(c) + '</div>'; });
+      });
+    }
 
     $("#modalTitle").textContent = r.jobCode || r.jobName || "รายละเอียดรายงาน";
     $("#modalBody").innerHTML = b;
