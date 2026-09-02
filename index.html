@@ -144,6 +144,10 @@
   input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   .suffix-wrap { position: relative; }
+  .time-group { display: flex; align-items: center; gap: 8px; }
+  .time-group select { flex: 1; text-align: center; }
+  .time-colon { font-weight: 700; color: var(--ink-soft); }
+  .time-unit { font-size: 13px; color: var(--ink-faint); }
   .suffix-wrap .suffix { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
     font-size: 12.5px; color: var(--ink-faint); pointer-events: none; }
   .suffix-wrap input { padding-right: 42px; }
@@ -354,7 +358,13 @@
             <div class="field"><label>วันที่</label>
               <input type="date" name="jobDate"></div>
             <div class="field"><label>เวลา (24 ชม.)</label>
-              <select name="jobTime"></select></div>
+              <div class="time-group">
+                <select name="jobHour" aria-label="ชั่วโมง"></select>
+                <span class="time-colon">:</span>
+                <select name="jobMinute" aria-label="นาที"></select>
+                <span class="time-unit">น.</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -534,29 +544,27 @@
   function fmtDateTime(d) { var p = function(n){return (n<10?"0":"")+n;}; return d.getDate()+" "+thMonths[d.getMonth()].slice(0,3)+" "+(d.getFullYear()+543)+" · "+p(d.getHours())+":"+p(d.getMinutes()); }
   $("#todayDate").textContent = fmtDate(new Date());
 
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
   function buildTimeOptions() {
-    var sel = $('[name="jobTime"]'); if (!sel || sel.options.length) return;
-    var html = "";
-    for (var h = 0; h < 24; h++) for (var m = 0; m < 60; m += 15) {
-      var t = (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
-      html += '<option value="' + t + '">' + t + ' น.</option>';
-    }
-    sel.innerHTML = html;
+    var hs = $('[name="jobHour"]'), ms = $('[name="jobMinute"]');
+    if (hs && !hs.options.length) { var h = ""; for (var i = 0; i < 24; i++) { var v = pad2(i); h += '<option value="' + v + '">' + v + '</option>'; } hs.innerHTML = h; }
+    if (ms && !ms.options.length) { var m = ""; for (var j = 0; j < 60; j++) { var w = pad2(j); m += '<option value="' + w + '">' + w + '</option>'; } ms.innerHTML = m; }
   }
-  function ensureTimeOption(val) {
-    var sel = $('[name="jobTime"]'); if (!sel || !val) return;
-    var has = Array.prototype.some.call(sel.options, function (o) { return o.value === val; });
-    if (!has) { var o = document.createElement("option"); o.value = val; o.textContent = val + " น."; sel.appendChild(o); }
+  function jobTimeValue() {
+    var hs = $('[name="jobHour"]'), ms = $('[name="jobMinute"]');
+    return (hs && ms) ? (hs.value + ":" + ms.value) : "";
+  }
+  function setJobTime(val) {
+    var hs = $('[name="jobHour"]'), ms = $('[name="jobMinute"]');
+    var t = (val || "").split(":");
+    if (hs) hs.value = t[0] || "00";
+    if (ms) ms.value = t[1] || "00";
   }
   function setDateTimeDefaults() {
-    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
-    var di = $('[name="jobDate"]'), ti = $('[name="jobTime"]');
-    if (di) di.value = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
-    if (ti) {
-      var mins = Math.round((d.getHours() * 60 + d.getMinutes()) / 15) * 15;
-      if (mins >= 1440) mins = 1425;
-      ti.value = p(Math.floor(mins / 60)) + ":" + p(mins % 60);
-    }
+    var d = new Date();
+    var di = $('[name="jobDate"]');
+    if (di) di.value = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+    setJobTime(pad2(d.getHours()) + ":" + pad2(d.getMinutes()));
   }
   buildTimeOptions();
   function fmtJobDate(iso) {
@@ -707,7 +715,7 @@
   function collectFormData() {
     return {
       jobCode: fval("jobCode"), jobName: fval("jobName"),
-      jobDate: fval("jobDate"), jobTime: fval("jobTime"),
+      jobDate: fval("jobDate"), jobTime: jobTimeValue(),
       connectors: readRows($("#connectorRows"), "connector"),
       cables: readRows($("#cableRows"), "cable"),
       loops: readRows($("#loopRows"), "loop"),
@@ -772,8 +780,7 @@
     editingId = rep.id;
     editingOriginal = JSON.parse(JSON.stringify(rep));
     function set(name, v) { var el = $('[name="' + name + '"]'); if (el) el.value = v || ""; }
-    ensureTimeOption(rep.jobTime);
-    set("jobCode", rep.jobCode); set("jobName", rep.jobName); set("jobDate", rep.jobDate); set("jobTime", rep.jobTime);
+    set("jobCode", rep.jobCode); set("jobName", rep.jobName); set("jobDate", rep.jobDate); setJobTime(rep.jobTime);
     set("spliceOfc", rep.spliceOfc); set("splicePoints", rep.splicePoints); set("detail", rep.detail); set("removeDetail", rep.removeDetail);
     var yes = rep.removeCable === "yes";
     $$('input[name="removeCable"]').forEach(function (r) { r.checked = (r.value === (yes ? "yes" : "none")); });
