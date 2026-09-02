@@ -2,7 +2,7 @@
  * Saiyai Dashboard — Google Drive backend (Google Apps Script)
  * -----------------------------------------------------------------
  * รับข้อมูลรายงานจากเว็บ แล้วเก็บลง Google Drive:
- *   - แยกโฟลเดอร์ต่อ 1 งาน  ชื่อโฟลเดอร์ = "รหัสเลขงาน ชื่องาน"
+ *   - แยกโฟลเดอร์ต่อ 1 งาน  ชื่อโฟลเดอร์ = "รหัสเลขงาน สถานที่ปฏิบัติงาน"
  *   - ถ้ามีรื้อสายกลับ จะสร้างโฟลเดอร์ย่อย "รื้อสายกลับ" ในงานนั้น
  *   - บันทึกรูปงาน + ไฟล์สรุปรายงาน (.txt) + ไฟล์ข้อมูลดิบ (report.json)
  *
@@ -35,7 +35,7 @@ function doPost(e) {
     if (data.action === "delete") return handleDelete(data);
     var parent = DriveApp.getFolderById(PARENT_FOLDER_ID);
 
-    // ---- โฟลเดอร์ของงาน : "รหัสเลขงาน ชื่องาน" ----
+    // ---- โฟลเดอร์ของงาน : "รหัสเลขงาน สถานที่ปฏิบัติงาน" ----
     var folderName = [data.jobCode, data.jobName]
       .filter(function (x) { return x && String(x).trim(); })
       .join(" ").trim();
@@ -156,10 +156,10 @@ function pad(n) { return (n < 10 ? "0" : "") + n; }
 
 function buildSummary(d) {
   var L = [];
-  L.push("รายงานประจำวัน — Saiyai");
+  L.push("รายงานการทำงาน — Saiyai");
   L.push("=======================================");
   L.push("รหัสเลขงาน : " + (d.jobCode || "-"));
-  L.push("ชื่องาน     : " + (d.jobName || "-"));
+  L.push("สถานที่ปฏิบัติงาน     : " + (d.jobName || "-"));
   L.push("บันทึกเมื่อ : " + (d.created || "-"));
   L.push("");
 

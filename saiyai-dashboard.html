@@ -324,13 +324,13 @@
         <div class="card fsec">
           <div class="fsec-head">
             <div class="fsec-num">1</div>
-            <div><h3 class="fsec-title">ข้อมูลงาน</h3><p class="fsec-desc">รหัสเลขงานและชื่องาน</p></div>
+            <div><h3 class="fsec-title">ข้อมูลงาน</h3><p class="fsec-desc">รหัสเลขงานและสถานที่ปฏิบัติงาน</p></div>
           </div>
           <div class="grid2">
             <div class="field"><label>รหัสเลขงาน (ID)</label>
               <input type="text" name="jobCode" placeholder="EX. I26xx-xxxxxx"></div>
-            <div class="field"><label>ชื่องาน</label>
-              <input type="text" name="jobName" placeholder="เช่น ติดตั้งสายไฟเบอร์ ซอยลาดพร้าว 15"></div>
+            <div class="field"><label>สถานที่ปฏิบัติงาน</label>
+              <input type="text" name="jobName" placeholder="เช่น ซอยลาดพร้าว 15 / ชุมสาย XYZ"></div>
           </div>
         </div>
 
@@ -652,7 +652,7 @@
       synced: false,
       driveFolderUrl: ""
     };
-    if (!rep.jobCode && !rep.jobName) { toast("กรุณากรอกรหัสงานหรือชื่องานก่อนบันทึก"); return; }
+    if (!rep.jobCode && !rep.jobName) { toast("กรุณากรอกรหัสงานหรือสถานที่ปฏิบัติงานก่อนบันทึก"); return; }
     var list = loadReports(); list.unshift(rep);
     try { saveReports(list); }
     catch (err) { toast("พื้นที่จัดเก็บเต็ม — ลองลดจำนวนรูปหรือลบรายงานเก่า"); return; }
@@ -789,7 +789,7 @@
 
       return '<div class="card report-card"><div>' +
         '<span class="rc-code">' + esc(r.jobCode || "—") + '</span>' +
-        '<div class="rc-title">' + esc(r.jobName || "(ไม่ระบุชื่องาน)") + '</div>' +
+        '<div class="rc-title">' + esc(r.jobName || "(ไม่ระบุสถานที่ปฏิบัติงาน)") + '</div>' +
         '<div class="rc-meta">บันทึกเมื่อ ' + fmtDateTime(new Date(r.created)) + '</div>' +
         '<div class="rc-stats">' + stats.join("") + '</div>' + media +
         '</div><div class="rc-actions">' + actions + '</div></div>';
@@ -829,7 +829,7 @@
     if (!r) return;
     var b = "";
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
-    b += line("ชื่องาน", esc(r.jobName || "—"));
+    b += line("สถานที่ปฏิบัติงาน", esc(r.jobName || "—"));
     b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));
     if (r.synced && r.driveFolderUrl) b += line("Google Drive", '<a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดโฟลเดอร์งานนี้ ↗</a>');
 
@@ -891,7 +891,7 @@
     var unsynced = loadReports().filter(function (r) { return !r.synced; }).length;
     $("#view-settings").innerHTML =
       '<div class="card fsec" style="max-width:760px;">' +
-        '<div class="fsec-head"><div class="fsec-num">☁</div><div><h3 class="fsec-title">การเชื่อมต่อ Google Drive</h3><p class="fsec-desc">เก็บรายงานและรูปลงโฟลเดอร์ Drive แยกโฟลเดอร์ตามงาน (รหัสงาน + ชื่องาน)</p></div></div>' +
+        '<div class="fsec-head"><div class="fsec-num">☁</div><div><h3 class="fsec-title">การเชื่อมต่อ Google Drive</h3><p class="fsec-desc">เก็บรายงานและรูปลงโฟลเดอร์ Drive แยกโฟลเดอร์ตามงาน (รหัสงาน + สถานที่ปฏิบัติงาน)</p></div></div>' +
         '<div class="field" style="margin-bottom:14px;"><label>Google Apps Script Web App URL</label>' +
           '<input type="text" id="driveUrlInput" placeholder="https://script.google.com/macros/s/xxxxx/exec" value="' + esc(cur) + '"></div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
