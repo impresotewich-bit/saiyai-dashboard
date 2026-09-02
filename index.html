@@ -1,0 +1,830 @@
+<title>Saiyai Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --ground: #F7F5F1;
+    --surface: #FFFFFF;
+    --surface-2: #FBFAF7;
+    --ink: #1C2321;
+    --ink-soft: #5A635F;
+    --ink-faint: #909a95;
+    --line: #E7E3DB;
+    --accent: #0E7C7B;
+    --accent-soft: #E1F0EF;
+    --accent-deep: #0A5A59;
+    --thread: linear-gradient(135deg, #0E7C7B 0%, #23A6A0 60%, #56C2B0 100%);
+    --good: #2E9E5B;
+    --good-soft: #E3F3E9;
+    --warn: #C98A00;
+    --warn-soft: #F8EED2;
+    --crit: #D64545;
+    --crit-soft: #FbE4E1;
+    --shadow: 0 1px 2px rgba(28,35,33,.04), 0 8px 24px rgba(28,35,33,.06);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #121614; --surface: #1A211E; --surface-2: #171D1B;
+      --ink: #ECEFEC; --ink-soft: #A6AFAA; --ink-faint: #717975; --line: #2A322F;
+      --accent: #3FB8B0; --accent-soft: #143331; --accent-deep: #6FD4C9;
+      --good: #52C07C; --good-soft: #16301F; --warn: #E0A83A; --warn-soft: #34290F;
+      --crit: #EB6A6A; --crit-soft: #351A19;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #121614; --surface: #1A211E; --surface-2: #171D1B;
+    --ink: #ECEFEC; --ink-soft: #A6AFAA; --ink-faint: #717975; --line: #2A322F;
+    --accent: #3FB8B0; --accent-soft: #143331; --accent-deep: #6FD4C9;
+    --good: #52C07C; --good-soft: #16301F; --warn: #E0A83A; --warn-soft: #34290F;
+    --crit: #EB6A6A; --crit-soft: #351A19;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Sarabun", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .app { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; padding: 22px 16px; gap: 24px;
+    position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 0 6px; }
+  .brand-mark { width: 40px; height: 40px; border-radius: 12px; background: var(--thread);
+    position: relative; flex: none; box-shadow: 0 4px 12px rgba(14,124,123,.28); }
+  .brand-mark::before, .brand-mark::after { content: ""; position: absolute; inset: 0;
+    border-radius: 12px; border: 2px solid rgba(255,255,255,.55); }
+  .brand-mark::before { transform: scale(.62) rotate(45deg); }
+  .brand-mark::after { transform: scale(.62) rotate(-45deg); }
+  .brand-name { font-family: "Kanit"; font-weight: 600; font-size: 20px; line-height: 1; }
+  .brand-sub { font-size: 11.5px; color: var(--ink-faint); letter-spacing: 1.4px; text-transform: uppercase; margin-top: 3px; }
+
+  .nav-group-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--ink-faint); padding: 0 10px; margin-bottom: 8px; font-weight: 600; }
+  .nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .nav button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 11px;
+    border: none; background: transparent; color: var(--ink-soft); font-family: inherit;
+    font-size: 14.5px; font-weight: 500; border-radius: 10px; cursor: pointer; text-align: left;
+    transition: background .15s, color .15s; }
+  .nav button:hover { background: var(--surface-2); color: var(--ink); }
+  .nav button.active { background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; }
+  .nav button .ico { width: 18px; height: 18px; flex: none; }
+  .nav button.active .ico { color: var(--accent); }
+  .nav button .badge { margin-left: auto; font-size: 11px; font-weight: 600; background: var(--accent);
+    color: #fff; border-radius: 20px; padding: 1px 8px; min-width: 20px; text-align: center; }
+  .sidebar-foot { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--line); }
+  .user { display: flex; align-items: center; gap: 11px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; background: var(--thread);
+    color: #fff; display: grid; place-items: center; font-family: "Kanit"; font-weight: 600; font-size: 14px; }
+  .user-name { font-size: 13.5px; font-weight: 600; line-height: 1.2; }
+  .user-role { font-size: 11.5px; color: var(--ink-faint); }
+
+  /* ---------- Main ---------- */
+  .main { padding: 26px 34px 60px; min-width: 0; }
+  .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .page-title { font-family: "Kanit"; font-weight: 600; font-size: 27px; line-height: 1.1; margin: 0; text-wrap: balance; }
+  .page-sub { color: var(--ink-soft); font-size: 14px; margin: 6px 0 0; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .date-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 999px; font-size: 13.5px; color: var(--ink-soft); box-shadow: var(--shadow); }
+  .date-pill b { color: var(--ink); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-family: inherit; font-size: 13.5px;
+    font-weight: 600; cursor: pointer; border-radius: 10px; padding: 10px 16px; border: 1px solid transparent;
+    transition: filter .15s, background .15s, color .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.06); }
+  .btn-ghost { background: var(--surface); color: var(--ink-soft); border-color: var(--line); box-shadow: var(--shadow); }
+  .btn-ghost:hover { color: var(--ink); }
+  .btn-danger { background: transparent; color: var(--crit); border-color: var(--line); }
+  .btn-danger:hover { background: var(--crit-soft); }
+  .btn-sm { padding: 7px 12px; font-size: 12.5px; }
+  .icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); cursor: pointer; }
+  .icon-btn:hover { color: var(--ink); }
+
+  .view { display: none; animation: fade .25s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .view, .view.active { animation: none; } }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  /* ---------- Form ---------- */
+  .form { display: flex; flex-direction: column; gap: 18px; max-width: 940px; }
+  .fsec { padding: 20px 22px; }
+  .fsec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .fsec-num { width: 28px; height: 28px; flex: none; border-radius: 8px; background: var(--accent-soft);
+    color: var(--accent-deep); font-family: "Kanit"; font-weight: 600; font-size: 14px; display: grid; place-items: center; }
+  .fsec-title { font-family: "Kanit"; font-weight: 600; font-size: 16.5px; margin: 0; }
+  .fsec-desc { font-size: 12.5px; color: var(--ink-faint); margin: 2px 0 0; }
+  .fsec-head .btn { margin-left: auto; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; font-family: inherit; font-size: 14px; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px;
+    transition: border-color .15s, box-shadow .15s; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+  .suffix-wrap { position: relative; }
+  .suffix-wrap .suffix { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 12.5px; color: var(--ink-faint); pointer-events: none; }
+  .suffix-wrap input { padding-right: 42px; }
+
+  /* dynamic rows */
+  .rows { display: flex; flex-direction: column; gap: 12px; }
+  .row-item { display: grid; gap: 12px; align-items: end; padding: 14px; border: 1px solid var(--line);
+    border-radius: 11px; background: var(--surface-2); position: relative; }
+  .row-item .row-tag { position: absolute; top: -9px; left: 12px; background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 600; padding: 1px 9px; border-radius: 20px; }
+  .row-del { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-faint); cursor: pointer;
+    display: grid; place-items: center; }
+  .row-del:hover { color: var(--crit); border-color: var(--crit); }
+  .empty-note { font-size: 13px; color: var(--ink-faint); padding: 10px 2px; }
+
+  /* radio choice */
+  .choice { display: flex; gap: 12px; flex-wrap: wrap; }
+  .choice label { display: flex; align-items: center; gap: 9px; padding: 11px 16px; border: 1px solid var(--line);
+    border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; background: var(--surface-2);
+    transition: border-color .15s, background .15s; flex: 1; min-width: 180px; }
+  .choice label:hover { border-color: var(--accent); }
+  .choice input { accent-color: var(--accent); width: 17px; height: 17px; }
+  .choice label.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); }
+  .conditional { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); display: none; }
+  .conditional.show { display: block; }
+
+  /* uploader */
+  .uploader { border: 1.5px dashed var(--line); border-radius: 11px; padding: 16px; text-align: center;
+    background: var(--surface-2); cursor: pointer; transition: border-color .15s, background .15s; }
+  .uploader:hover, .uploader.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .uploader svg { color: var(--accent); }
+  .uploader p { margin: 8px 0 0; font-size: 13px; color: var(--ink-soft); }
+  .uploader small { color: var(--ink-faint); }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-top: 12px; }
+  .thumb { position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .t-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 6px;
+    border: none; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; display: grid; place-items: center; font-size: 12px; }
+  .thumb .t-del:hover { background: var(--crit); }
+
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;
+    position: sticky; bottom: 0; padding: 16px 0 0; }
+
+  /* ---------- saved list ---------- */
+  .report-list { display: flex; flex-direction: column; gap: 14px; }
+  .report-card { padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 12px 18px; align-items: start; }
+  .rc-code { font-family: "IBM Plex Mono"; font-weight: 600; font-size: 12.5px; color: var(--accent-deep);
+    background: var(--accent-soft); padding: 2px 9px; border-radius: 6px; display: inline-block; }
+  .rc-title { font-family: "Kanit"; font-weight: 600; font-size: 17px; margin: 8px 0 4px; }
+  .rc-meta { font-size: 12.5px; color: var(--ink-faint); }
+  .rc-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chip { font-size: 12px; font-weight: 600; color: var(--ink-soft); background: var(--surface-2);
+    border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; }
+  .rc-thumbs { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .rc-thumbs img { width: 46px; height: 46px; object-fit: cover; border-radius: 7px; border: 1px solid var(--line); }
+  .rc-more { width: 46px; height: 46px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+  .rc-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+
+  /* KPI */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 8px; }
+  .kpi { padding: 18px; }
+  .kpi-head { display: flex; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 13px; font-weight: 500; }
+  .kpi-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+  .kpi-value { font-family: "Kanit"; font-weight: 600; font-size: 30px; line-height: 1.05; margin: 10px 0 0; }
+  .kpi-value small { font-size: 14px; color: var(--ink-faint); font-weight: 500; }
+
+  /* tiles */
+  .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tile { padding: 20px; text-align: left; cursor: pointer; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px;
+    transition: transform .15s, border-color .15s; font-family: inherit; }
+  .tile:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .tile-ico { width: 26px; height: 26px; color: var(--accent); }
+  .tile h4 { margin: 0; font-family: "Kanit"; font-weight: 600; font-size: 16px; }
+  .tile p { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+
+  .placeholder { padding: 56px 28px; text-align: center; }
+  .placeholder .ph-ico { width: 54px; height: 54px; margin: 0 auto 16px; color: var(--accent); }
+  .placeholder h3 { font-family: "Kanit"; font-weight: 600; font-size: 20px; margin: 0 0 8px; }
+  .placeholder p { color: var(--ink-soft); font-size: 14px; max-width: 460px; margin: 0 auto 18px; line-height: 1.6; }
+
+  /* ---------- modal ---------- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(20,25,23,.55); backdrop-filter: blur(3px);
+    display: none; align-items: flex-start; justify-content: center; padding: 34px 16px; z-index: 50; overflow-y: auto; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--surface); border-radius: 16px; max-width: 720px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    border: 1px solid var(--line); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+  .modal-head h3 { font-family: "Kanit"; font-weight: 600; font-size: 18px; margin: 0; }
+  .modal-body { padding: 22px 24px; }
+  .modal-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+  .rp-line { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .rp-line:last-child { border-bottom: none; }
+  .rp-key { color: var(--ink-faint); font-size: 12.5px; font-weight: 600; padding-top: 1px; }
+  .rp-sub { margin: 4px 0; font-size: 13.5px; }
+  .rp-h { font-family: "Kanit"; font-weight: 600; font-size: 14px; margin: 18px 0 6px; color: var(--accent-deep); }
+  .rp-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 8px; margin-top: 8px; }
+  .rp-gallery img { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+
+  /* toast */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--ground); padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3); opacity: 0; pointer-events: none; transition: all .3s ease; z-index: 100; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
+    .tile-grid { grid-template-columns: 1fr; }
+    .main { padding: 22px 16px 44px; }
+    .report-card { grid-template-columns: 1fr; }
+    .rc-actions { flex-direction: row; }
+  }
+  @media print {
+    .sidebar, .topbar-actions, .modal-foot, .modal-head .icon-btn { display: none !important; }
+  }
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div>
+        <div class="brand-name">Saiyai</div>
+        <div class="brand-sub">Cable Report</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="nav-group-label">เมนูหลัก</div>
+      <ul class="nav" id="mainNav">
+        <li><button class="active" data-view="daily">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h6M9 17h4"/></svg>
+          รายงานประจำวัน</button></li>
+        <li><button data-view="saved">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+          รายงานที่บันทึก <span class="badge" id="savedCount">0</span></button></li>
+        <li><button data-view="others">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          อื่นๆ</button></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="user">
+        <div class="avatar">ส</div>
+        <div>
+          <div class="user-name">ทีมสายใย</div>
+          <div class="user-role">ช่างติดตั้งสาย</div>
+        </div>
+        <button class="icon-btn" id="themeBtn" title="สลับธีม" aria-label="สลับธีม" style="margin-left:auto;">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 class="page-title" id="pageTitle">รายงานประจำวัน</h1>
+        <p class="page-sub" id="pageSub">กรอกรายละเอียดงานติดตั้ง / ซ่อมสายที่ทำในวันนี้</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="date-pill">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <b id="todayDate">—</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DAILY REPORT FORM ============ -->
+    <section class="view active" id="view-daily">
+      <form class="form" id="reportForm" autocomplete="off">
+
+        <!-- 1 & 2 -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">1</div>
+            <div><h3 class="fsec-title">ข้อมูลงาน</h3><p class="fsec-desc">รหัสเลขงานและชื่องาน</p></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>รหัสเลขงาน (ID)</label>
+              <input type="text" name="jobCode" placeholder="EX. I26xx-xxxxxx"></div>
+            <div class="field"><label>ชื่องาน</label>
+              <input type="text" name="jobName" placeholder="เช่น ติดตั้งสายไฟเบอร์ ซอยลาดพร้าว 15"></div>
+          </div>
+        </div>
+
+        <!-- 3 หัวต่อ -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">2</div>
+            <div><h3 class="fsec-title">ชื่อหัวต่อ</h3><p class="fsec-desc">ระบุชื่อหัวต่อและพิกัด — เพิ่ม/ลบได้ตามจำนวนที่ตัดต่อ</p></div>
+            <button type="button" class="btn btn-ghost btn-sm" data-add="connector">+ เพิ่มหัวต่อ</button>
+          </div>
+          <div class="rows" id="connectorRows"></div>
+        </div>
+
+        <!-- 4 พาดสายใหม่ -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">3</div>
+            <div><h3 class="fsec-title">พาดสายใหม่</h3><p class="fsec-desc">OFC / CORE / Drum / ML / ความยาว — เพิ่ม/ลบรายการได้</p></div>
+            <button type="button" class="btn btn-ghost btn-sm" data-add="cable">+ เพิ่มรายการ</button>
+          </div>
+          <div class="rows" id="cableRows"></div>
+        </div>
+
+        <!-- 5 ร่นสาย -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">4</div>
+            <div><h3 class="fsec-title">ร่นสาย (Loop)</h3><p class="fsec-desc">ระบุ ML และความยาว — เพิ่ม/ลบได้</p></div>
+            <button type="button" class="btn btn-ghost btn-sm" data-add="loop">+ เพิ่มรายการ</button>
+          </div>
+          <div class="rows" id="loopRows"></div>
+        </div>
+
+        <!-- 6 จุดตัดต่อ -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">5</div>
+            <div><h3 class="fsec-title">จุดตัดต่อ / ตัดต่อใหม่</h3><p class="fsec-desc">OFC / CORE และจำนวนจุด</p></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label>OFC (CORE)</label>
+              <input type="number" name="spliceOfc" min="0" placeholder="จำนวน CORE"></div>
+            <div class="field"><label>จำนวนจุด</label>
+              <div class="suffix-wrap"><input type="number" name="splicePoints" min="0" placeholder="0"><span class="suffix">จุด</span></div></div>
+          </div>
+        </div>
+
+        <!-- 7 รื้อสายกลับ -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">6</div>
+            <div><h3 class="fsec-title">การรื้อสายกลับ</h3><p class="fsec-desc">เลือกสถานะ หากมีให้ระบุเส้นที่นำกลับและแนบภาพ</p></div>
+          </div>
+          <div class="choice" id="removeChoice">
+            <label class="sel"><input type="radio" name="removeCable" value="none" checked> ไม่มีสายรื้อกลับ</label>
+            <label><input type="radio" name="removeCable" value="yes"> มีรื้อสายกลับ</label>
+          </div>
+          <div class="conditional" id="removeCond">
+            <div class="field" style="margin-bottom:14px;"><label>เส้นที่นำกลับมา</label>
+              <textarea name="removeDetail" placeholder="ระบุเส้น / ชนิดสาย / ความยาวที่นำกลับ"></textarea></div>
+            <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;">ภาพสายที่รื้อกลับ</label>
+            <div class="uploader" data-uploader="remove">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              <p>แตะเพื่อเลือกรูป <small>หรือถ่ายจากกล้อง</small></p>
+            </div>
+            <div class="thumbs" data-thumbs="remove"></div>
+          </div>
+        </div>
+
+        <!-- 8 รายละเอียด -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">7</div>
+            <div><h3 class="fsec-title">รายละเอียดการทำงาน</h3><p class="fsec-desc">อธิบายลักษณะงานและเหตุการณ์ที่เกิดขึ้น</p></div>
+          </div>
+          <div class="field"><textarea name="detail" placeholder="พิมพ์อธิบายรายละเอียดการทำงาน..." style="min-height:120px;"></textarea></div>
+        </div>
+
+        <!-- 9 ภาพงาน -->
+        <div class="card fsec">
+          <div class="fsec-head">
+            <div class="fsec-num">8</div>
+            <div><h3 class="fsec-title">ภาพงาน</h3><p class="fsec-desc">อัปโหลดรูปที่ถ่ายระหว่างดำเนินงานได้หลายรูป</p></div>
+          </div>
+          <div class="uploader" data-uploader="work">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+            <p>แตะเพื่อเลือกรูปงาน <small>รองรับหลายรูป · ถ่ายจากกล้องได้</small></p>
+          </div>
+          <div class="thumbs" data-thumbs="work"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="clearBtn">ล้างฟอร์ม</button>
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2zM17 21v-8H7v8M7 3v5h8"/></svg>
+            บันทึกรายงาน
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============ SAVED REPORTS ============ -->
+    <section class="view" id="view-saved">
+      <div class="kpi-grid" id="savedKpi"></div>
+      <div style="height:20px;"></div>
+      <div class="report-list" id="reportList"></div>
+    </section>
+
+    <!-- ============ OTHERS ============ -->
+    <section class="view" id="view-others">
+      <div class="tile-grid" id="othersGrid"></div>
+    </section>
+
+    <section class="view" id="view-settings"></section>
+    <section class="view" id="view-help"></section>
+  </main>
+</div>
+
+<!-- report detail modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">รายละเอียดรายงาน</h3>
+      <button class="icon-btn" id="modalClose" aria-label="ปิด">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="printBtn">พิมพ์ / บันทึก PDF</button>
+      <button class="btn btn-primary" id="modalCloseBtn">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var STORE_KEY = "saiyai_reports_v1";
+
+  /* ---------- date ---------- */
+  var thMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  var thDays = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+  function fmtDate(d) { return "วัน" + thDays[d.getDay()] + "ที่ " + d.getDate() + " " + thMonths[d.getMonth()] + " " + (d.getFullYear() + 543); }
+  function fmtDateTime(d) { var p = function(n){return (n<10?"0":"")+n;}; return d.getDate()+" "+thMonths[d.getMonth()].slice(0,3)+" "+(d.getFullYear()+543)+" · "+p(d.getHours())+":"+p(d.getMinutes()); }
+  $("#todayDate").textContent = fmtDate(new Date());
+
+  function toast(msg) {
+    var t = $("#toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(t._to); t._to = setTimeout(function () { t.classList.remove("show"); }, 2400);
+  }
+
+  /* ---------- image handling ---------- */
+  // stores: object mapping uploader-key -> array of dataURLs
+  var imageStore = { work: [], remove: [] };
+
+  function compressImage(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1280, w = img.width, h = img.height;
+        if (w > max || h > max) { var r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+        var c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        try { cb(c.toDataURL("image/jpeg", 0.72)); } catch (err) { cb(e.target.result); }
+      };
+      img.onerror = function () { cb(e.target.result); };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderThumbs(key) {
+    var box = $('[data-thumbs="' + key + '"]');
+    box.innerHTML = imageStore[key].map(function (src, i) {
+      return '<div class="thumb"><img src="' + src + '" alt="รูป ' + (i + 1) + '"><button type="button" class="t-del" data-key="' + key + '" data-i="' + i + '" aria-label="ลบรูป">✕</button></div>';
+    }).join("");
+  }
+
+  function handleFiles(key, files) {
+    var arr = Array.prototype.slice.call(files).filter(function (f) { return /^image\//.test(f.type); });
+    var pending = arr.length;
+    if (!pending) return;
+    arr.forEach(function (f) {
+      compressImage(f, function (data) {
+        imageStore[key].push(data);
+        pending--; if (pending === 0) renderThumbs(key);
+        else renderThumbs(key);
+      });
+    });
+  }
+
+  function setupUploaders() {
+    $$("[data-uploader]").forEach(function (up) {
+      var key = up.getAttribute("data-uploader");
+      var input = document.createElement("input");
+      input.type = "file"; input.accept = "image/*"; input.multiple = true;
+      input.style.display = "none";
+      up.appendChild(input);
+      up.addEventListener("click", function (e) { if (e.target !== input) input.click(); });
+      input.addEventListener("change", function () { handleFiles(key, input.files); input.value = ""; });
+      up.addEventListener("dragover", function (e) { e.preventDefault(); up.classList.add("drag"); });
+      up.addEventListener("dragleave", function () { up.classList.remove("drag"); });
+      up.addEventListener("drop", function (e) { e.preventDefault(); up.classList.remove("drag"); handleFiles(key, e.dataTransfer.files); });
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var d = e.target.closest(".t-del");
+    if (d) { var k = d.getAttribute("data-key"); imageStore[k].splice(+d.getAttribute("data-i"), 1); renderThumbs(k); }
+  });
+
+  /* ---------- dynamic rows ---------- */
+  function inputHTML(cls, ph, type, suffix) {
+    var inp = '<input type="' + (type || "text") + '" class="' + cls + '" placeholder="' + ph + '"' + (type === "number" ? ' min="0"' : '') + '>';
+    return suffix ? '<div class="suffix-wrap">' + inp + '<span class="suffix">' + suffix + '</span></div>' : inp;
+  }
+  function addRow(type) {
+    var containers = { connector: "#connectorRows", cable: "#cableRows", loop: "#loopRows" };
+    var box = $(containers[type]);
+    var note = $(".empty-note", box); if (note) note.remove();
+    var el = document.createElement("div");
+    el.className = "row-item"; el.setAttribute("data-type", type);
+    var n = $$(".row-item", box).length + 1;
+    var body = "";
+    if (type === "connector") {
+      el.style.gridTemplateColumns = "1fr 1fr";
+      body =
+        '<div class="field"><label>ชื่อหัวต่อ</label>' + inputHTML("f-name", "เช่น หัวต่อ A / CL-01") + '</div>' +
+        '<div class="field"><label>พิกัด</label>' + inputHTML("f-coord", "เช่น 13.7563, 100.5018") + '</div>';
+    } else if (type === "cable") {
+      el.style.gridTemplateColumns = "repeat(4, 1fr)";
+      body =
+        '<div class="field"><label>OFC (CORE)</label>' + inputHTML("f-ofc", "จำนวน CORE", "number") + '</div>' +
+        '<div class="field"><label>เลข Drum</label>' + inputHTML("f-drum", "ชื่อ/เลข Drum") + '</div>' +
+        '<div class="field"><label>ML</label>' + inputHTML("f-ml", "ระบุ ML") + '</div>' +
+        '<div class="field"><label>ความยาว</label>' + inputHTML("f-len", "0", "number", "M.") + '</div>';
+    } else if (type === "loop") {
+      el.style.gridTemplateColumns = "1fr 1fr";
+      body =
+        '<div class="field"><label>ML</label>' + inputHTML("f-ml", "ระบุ ML") + '</div>' +
+        '<div class="field"><label>ความยาว</label>' + inputHTML("f-len", "0", "number", "M.") + '</div>';
+    }
+    el.innerHTML = '<span class="row-tag">#' + n + '</span>' + body +
+      '<button type="button" class="row-del" aria-label="ลบ"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+    box.appendChild(el);
+    $(".row-del", el).addEventListener("click", function () {
+      el.remove(); renumber(box, type);
+      if (!$$(".row-item", box).length) showEmpty(box, type);
+    });
+    return el;
+  }
+  function renumber(box) { $$(".row-item", box).forEach(function (r, i) { $(".row-tag", r).textContent = "#" + (i + 1); }); }
+  function showEmpty(box, type) {
+    var msgs = { connector: "ยังไม่มีหัวต่อ — กด “เพิ่มหัวต่อ”", cable: "ยังไม่มีรายการพาดสาย — กด “เพิ่มรายการ”", loop: "ยังไม่มีรายการร่นสาย — กด “เพิ่มรายการ”" };
+    box.innerHTML = '<div class="empty-note">' + msgs[type] + '</div>';
+  }
+  $$("[data-add]").forEach(function (b) { b.addEventListener("click", function () { addRow(b.getAttribute("data-add")); }); });
+
+  // seed one row each
+  ["connector", "cable", "loop"].forEach(function (t) { addRow(t); });
+
+  /* ---------- conditional (รื้อสายกลับ) ---------- */
+  $$('input[name="removeCable"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      $$("#removeChoice label").forEach(function (l) { l.classList.toggle("sel", $("input", l).checked); });
+      $("#removeCond").classList.toggle("show", $('input[name="removeCable"]:checked').value === "yes");
+    });
+  });
+
+  /* ---------- collect + save ---------- */
+  function readRows(box, type) {
+    return $$(".row-item", box).map(function (el) {
+      if (type === "connector") return { name: val(".f-name", el), coord: val(".f-coord", el) };
+      if (type === "cable") return { ofc: val(".f-ofc", el), drum: val(".f-drum", el), ml: val(".f-ml", el), len: val(".f-len", el) };
+      return { ml: val(".f-ml", el), len: val(".f-len", el) };
+    }).filter(function (o) { return Object.keys(o).some(function (k) { return o[k]; }); });
+    function val(s, el) { var i = $(s, el); return i ? i.value.trim() : ""; }
+  }
+  function fval(name) { var el = $('[name="' + name + '"]'); return el ? el.value.trim() : ""; }
+
+  function loadReports() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch (e) { return []; } }
+  function saveReports(list) { localStorage.setItem(STORE_KEY, JSON.stringify(list)); }
+
+  $("#reportForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var rep = {
+      id: Date.now(),
+      created: new Date().toISOString(),
+      jobCode: fval("jobCode"), jobName: fval("jobName"),
+      connectors: readRows($("#connectorRows"), "connector"),
+      cables: readRows($("#cableRows"), "cable"),
+      loops: readRows($("#loopRows"), "loop"),
+      spliceOfc: fval("spliceOfc"), splicePoints: fval("splicePoints"),
+      removeCable: $('input[name="removeCable"]:checked').value,
+      removeDetail: fval("removeDetail"),
+      removeImages: imageStore.remove.slice(),
+      detail: fval("detail"),
+      workImages: imageStore.work.slice()
+    };
+    if (!rep.jobCode && !rep.jobName) { toast("กรุณากรอกรหัสงานหรือชื่องานก่อนบันทึก"); return; }
+    var list = loadReports(); list.unshift(rep);
+    try { saveReports(list); }
+    catch (err) { toast("พื้นที่จัดเก็บเต็ม — ลองลดจำนวนรูปหรือลบรายงานเก่า"); return; }
+    toast("บันทึกรายงานเรียบร้อย ✓");
+    resetForm();
+    refreshSaved();
+  });
+
+  function resetForm() {
+    $("#reportForm").reset();
+    imageStore.work = []; imageStore.remove = [];
+    renderThumbs("work"); renderThumbs("remove");
+    ["#connectorRows", "#cableRows", "#loopRows"].forEach(function (s) { $(s).innerHTML = ""; });
+    ["connector", "cable", "loop"].forEach(function (t) { addRow(t); });
+    $$("#removeChoice label").forEach(function (l, i) { l.classList.toggle("sel", i === 0); });
+    $("#removeCond").classList.remove("show");
+  }
+  $("#clearBtn").addEventListener("click", function () { if (confirm("ล้างข้อมูลในฟอร์มทั้งหมด?")) resetForm(); });
+
+  /* ---------- saved list ---------- */
+  function esc(s) { return (s || "").replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function totalMeters(cables, loops) {
+    var sum = 0;
+    (cables || []).forEach(function (c) { sum += parseFloat(c.len) || 0; });
+    (loops || []).forEach(function (l) { sum += parseFloat(l.len) || 0; });
+    return sum;
+  }
+
+  function refreshSaved() {
+    var list = loadReports();
+    $("#savedCount").textContent = list.length;
+    // KPI
+    var totJobs = list.length;
+    var totConn = 0, totMeters = 0, totPhotos = 0;
+    list.forEach(function (r) {
+      totConn += (r.connectors || []).length;
+      totMeters += totalMeters(r.cables, r.loops);
+      totPhotos += (r.workImages || []).length + (r.removeImages || []).length;
+    });
+    var kpis = [
+      { label: "รายงานทั้งหมด", v: totJobs, u: "งาน", c: "var(--accent)" },
+      { label: "หัวต่อรวม", v: totConn, u: "จุด", c: "var(--good)" },
+      { label: "ความยาวสายรวม", v: totMeters.toLocaleString(), u: "M.", c: "var(--warn)" },
+      { label: "รูปภาพทั้งหมด", v: totPhotos, u: "รูป", c: "var(--accent-deep)" }
+    ];
+    $("#savedKpi").innerHTML = kpis.map(function (k) {
+      return '<div class="card kpi"><div class="kpi-head"><span class="kpi-dot" style="background:' + k.c + '"></span>' + k.label + '</div>' +
+        '<div class="kpi-value">' + k.v + ' <small>' + k.u + '</small></div></div>';
+    }).join("");
+
+    if (!list.length) {
+      $("#reportList").innerHTML = '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>' +
+        '<h3>ยังไม่มีรายงาน</h3><p>รายงานที่บันทึกจากหน้า “รายงานประจำวัน” จะแสดงที่นี่</p>' +
+        '<button class="btn btn-primary" data-goto="daily">สร้างรายงานใหม่</button></div>';
+      return;
+    }
+    $("#reportList").innerHTML = list.map(function (r) {
+      var imgs = (r.workImages || []).concat(r.removeImages || []);
+      var thumbs = imgs.slice(0, 5).map(function (s) { return '<img src="' + s + '" alt="">'; }).join("");
+      if (imgs.length > 5) thumbs += '<div class="rc-more">+' + (imgs.length - 5) + '</div>';
+      var stats = [];
+      if ((r.connectors || []).length) stats.push('<span class="chip">หัวต่อ ' + r.connectors.length + '</span>');
+      if ((r.cables || []).length) stats.push('<span class="chip">พาดสาย ' + r.cables.length + ' รายการ</span>');
+      var m = totalMeters(r.cables, r.loops); if (m) stats.push('<span class="chip">' + m.toLocaleString() + ' M.</span>');
+      if (r.splicePoints) stats.push('<span class="chip">ตัดต่อ ' + r.splicePoints + ' จุด</span>');
+      if (r.removeCable === "yes") stats.push('<span class="chip">มีรื้อสายกลับ</span>');
+      return '<div class="card report-card"><div>' +
+        '<span class="rc-code">' + esc(r.jobCode || "—") + '</span>' +
+        '<div class="rc-title">' + esc(r.jobName || "(ไม่ระบุชื่องาน)") + '</div>' +
+        '<div class="rc-meta">บันทึกเมื่อ ' + fmtDateTime(new Date(r.created)) + '</div>' +
+        '<div class="rc-stats">' + (stats.join("") || '<span class="chip">ไม่มีรายการย่อย</span>') + '</div>' +
+        (thumbs ? '<div class="rc-thumbs">' + thumbs + '</div>' : '') +
+        '</div><div class="rc-actions">' +
+        '<button class="btn btn-ghost btn-sm" data-view-report="' + r.id + '">ดูรายละเอียด</button>' +
+        '<button class="btn btn-danger btn-sm" data-del-report="' + r.id + '">ลบ</button>' +
+        '</div></div>';
+    }).join("");
+  }
+
+  document.addEventListener("click", function (e) {
+    var v = e.target.closest("[data-view-report]");
+    if (v) { openReport(+v.getAttribute("data-view-report")); return; }
+    var d = e.target.closest("[data-del-report]");
+    if (d) {
+      if (!confirm("ลบรายงานนี้?")) return;
+      var id = +d.getAttribute("data-del-report");
+      saveReports(loadReports().filter(function (r) { return r.id !== id; }));
+      refreshSaved(); toast("ลบรายงานแล้ว");
+    }
+  });
+
+  /* ---------- report modal ---------- */
+  function line(k, v) { return '<div class="rp-line"><div class="rp-key">' + k + '</div><div>' + v + '</div></div>'; }
+  function openReport(id) {
+    var r = loadReports().filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    var b = "";
+    b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
+    b += line("ชื่องาน", esc(r.jobName || "—"));
+    b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));
+
+    if ((r.connectors || []).length) {
+      b += '<div class="rp-h">ชื่อหัวต่อ (' + r.connectors.length + ')</div>';
+      r.connectors.forEach(function (c, i) { b += '<div class="rp-sub">' + (i + 1) + '. ' + esc(c.name || "-") + (c.coord ? ' · พิกัด ' + esc(c.coord) : '') + '</div>'; });
+    }
+    if ((r.cables || []).length) {
+      b += '<div class="rp-h">พาดสายใหม่ (' + r.cables.length + ')</div>';
+      r.cables.forEach(function (c, i) {
+        b += '<div class="rp-sub">' + (i + 1) + '. OFC ' + esc(c.ofc || "-") + ' CORE · Drum ' + esc(c.drum || "-") + ' · ML ' + esc(c.ml || "-") + ' · ' + esc(c.len || "0") + ' M.</div>';
+      });
+    }
+    if ((r.loops || []).length) {
+      b += '<div class="rp-h">ร่นสาย (Loop)</div>';
+      r.loops.forEach(function (l, i) { b += '<div class="rp-sub">' + (i + 1) + '. ML ' + esc(l.ml || "-") + ' · ' + esc(l.len || "0") + ' M.</div>'; });
+    }
+    if (r.spliceOfc || r.splicePoints) {
+      b += '<div class="rp-h">จุดตัดต่อ / ตัดต่อใหม่</div>';
+      b += '<div class="rp-sub">OFC ' + esc(r.spliceOfc || "-") + ' CORE · ' + esc(r.splicePoints || "0") + ' จุด</div>';
+    }
+    b += '<div class="rp-h">การรื้อสายกลับ</div>';
+    b += '<div class="rp-sub">' + (r.removeCable === "yes" ? "มีรื้อสายกลับ" : "ไม่มีสายรื้อกลับ") + '</div>';
+    if (r.removeCable === "yes" && r.removeDetail) b += '<div class="rp-sub">' + esc(r.removeDetail) + '</div>';
+    if ((r.removeImages || []).length) b += '<div class="rp-gallery">' + r.removeImages.map(function (s) { return '<img src="' + s + '">'; }).join("") + '</div>';
+
+    if (r.detail) { b += '<div class="rp-h">รายละเอียดการทำงาน</div><div class="rp-sub">' + esc(r.detail).replace(/\n/g, "<br>") + '</div>'; }
+    if ((r.workImages || []).length) { b += '<div class="rp-h">ภาพงาน (' + r.workImages.length + ')</div><div class="rp-gallery">' + r.workImages.map(function (s) { return '<img src="' + s + '">'; }).join("") + '</div>'; }
+
+    $("#modalTitle").textContent = r.jobCode || r.jobName || "รายละเอียดรายงาน";
+    $("#modalBody").innerHTML = b;
+    $("#modalBg").classList.add("show");
+  }
+  function closeModal() { $("#modalBg").classList.remove("show"); }
+  $("#modalClose").addEventListener("click", closeModal);
+  $("#modalCloseBtn").addEventListener("click", closeModal);
+  $("#modalBg").addEventListener("click", function (e) { if (e.target === $("#modalBg")) closeModal(); });
+  $("#printBtn").addEventListener("click", function () { window.print(); });
+
+  /* ---------- others ---------- */
+  var others = [
+    { view: "saved", t: "รายงานที่บันทึก", d: "ดู แก้ไข และส่งออกรายงานย้อนหลัง", ico: '<path d="M4 7h16M4 12h16M4 17h10"/>' },
+    { view: "settings", t: "ตั้งค่าระบบ", d: "ค่าเริ่มต้น รูปแบบรหัสงาน และข้อมูลทีม", ico: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>' },
+    { view: "help", t: "ศูนย์ช่วยเหลือ", d: "วิธีใช้งานและติดต่อทีมสนับสนุน", ico: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 013.5 2c0 1.5-2 1.5-2 3M12 17h.01"/>' }
+  ];
+  $("#othersGrid").innerHTML = others.map(function (o) {
+    return '<button class="tile" data-goto="' + o.view + '"><svg class="tile-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + o.ico + '</svg><h4>' + o.t + '</h4><p>' + o.d + '</p></button>';
+  }).join("");
+
+  function ph(title, body) {
+    return '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><h3>' + title + '</h3><p>' + body + '</p><button class="btn btn-primary" data-goto="daily">ไปที่รายงานประจำวัน</button></div>';
+  }
+  $("#view-settings").innerHTML = ph("ตั้งค่าระบบ", "ส่วนนี้พร้อมสำหรับกำหนดรูปแบบรหัสงาน ข้อมูลทีม และการเชื่อมต่อฐานข้อมูลจริง — บอกได้เลยว่าต้องการอะไรบ้าง");
+  $("#view-help").innerHTML = ph("ศูนย์ช่วยเหลือ", "กรอกฟอร์มในหน้ารายงานประจำวัน แล้วกด “บันทึกรายงาน” ระบบจะเก็บไว้ในเครื่องนี้และแสดงในหน้ารายงานที่บันทึก");
+
+  /* ---------- routing ---------- */
+  var titles = {
+    daily: ["รายงานประจำวัน", "กรอกรายละเอียดงานติดตั้ง / ซ่อมสายที่ทำในวันนี้"],
+    saved: ["รายงานที่บันทึก", "รายงานทั้งหมดที่จัดเก็บไว้ในเครื่องนี้"],
+    others: ["อื่นๆ", "เมนูและเครื่องมือเพิ่มเติม"],
+    settings: ["ตั้งค่าระบบ", "การกำหนดค่าและข้อมูลทีม"],
+    help: ["ศูนย์ช่วยเหลือ", "วิธีใช้งานระบบ"]
+  };
+  var navBtns = $$(".nav button");
+  function go(view) {
+    var v = $("#view-" + view); if (!v) { view = "daily"; v = $("#view-daily"); }
+    $$(".view").forEach(function (el) { el.classList.remove("active"); });
+    v.classList.add("active");
+    navBtns.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-view") === view); });
+    var t = titles[view] || titles.daily;
+    $("#pageTitle").textContent = t[0]; $("#pageSub").textContent = t[1];
+    if (view === "saved") refreshSaved();
+    try { localStorage.setItem("saiyai_view", view); } catch (e) {}
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  navBtns.forEach(function (b) { b.addEventListener("click", function () { go(b.getAttribute("data-view")); }); });
+  document.addEventListener("click", function (e) { var t = e.target.closest("[data-goto]"); if (t) go(t.getAttribute("data-goto")); });
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  try { var st = localStorage.getItem("saiyai_theme"); if (st) root.setAttribute("data-theme", st); } catch (e) {}
+  $("#themeBtn").addEventListener("click", function () {
+    var cur = root.getAttribute("data-theme");
+    var isDark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = isDark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("saiyai_theme", next); } catch (e) {}
+  });
+
+  /* ---------- init ---------- */
+  setupUploaders();
+  refreshSaved();
+  var saved; try { saved = localStorage.getItem("saiyai_view"); } catch (e) {}
+  if (saved) go(saved);
+})();
+</script>
