@@ -48,7 +48,9 @@
     font-family: "Sarabun", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
   .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
-  .app { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
+  .app { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; transition: grid-template-columns .25s ease; }
+  .app.nav-collapsed { grid-template-columns: 0 1fr; }
+  .app.nav-collapsed .sidebar { padding-left: 0; padding-right: 0; border-right: 0; overflow: hidden; }
 
   /* ---------- Sidebar ---------- */
   .sidebar { background: var(--surface); border-right: 1px solid var(--line);
@@ -265,8 +267,9 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 
   @media (max-width: 900px) {
-    .app { grid-template-columns: 1fr; }
+    .app, .app.nav-collapsed { grid-template-columns: 1fr; }
     .sidebar { position: static; height: auto; }
+    .app.nav-collapsed .sidebar { display: none; }
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
     .tile-grid { grid-template-columns: 1fr; }
@@ -320,9 +323,14 @@
 
   <main class="main">
     <div class="topbar">
-      <div>
-        <h1 class="page-title" id="pageTitle">รายงานการทำงาน</h1>
-        <p class="page-sub" id="pageSub">กรอกรายละเอียดงานติดตั้ง / ซ่อมสายที่ทำในวันนี้</p>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <button class="icon-btn" id="navToggle" title="ย่อ/ขยายเมนู" aria-label="ย่อ/ขยายเมนู" style="width:40px;height:40px;flex:none;">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <h1 class="page-title" id="pageTitle">รายงานการทำงาน</h1>
+          <p class="page-sub" id="pageSub">กรอกรายละเอียดงานติดตั้ง / ซ่อมสายที่ทำในวันนี้</p>
+        </div>
       </div>
       <div class="topbar-actions">
         <div class="date-pill">
@@ -1188,6 +1196,14 @@
   }
   navBtns.forEach(function (b) { b.addEventListener("click", function () { go(b.getAttribute("data-view")); }); });
   document.addEventListener("click", function (e) { var t = e.target.closest("[data-goto]"); if (t) go(t.getAttribute("data-goto")); });
+
+  /* ---------- sidebar collapse ---------- */
+  var app = document.querySelector(".app");
+  try { if (localStorage.getItem("saiyai_nav") === "collapsed") app.classList.add("nav-collapsed"); } catch (e) {}
+  $("#navToggle").addEventListener("click", function () {
+    var collapsed = app.classList.toggle("nav-collapsed");
+    try { localStorage.setItem("saiyai_nav", collapsed ? "collapsed" : "open"); } catch (e) {}
+  });
 
   /* ---------- theme ---------- */
   var root = document.documentElement;
