@@ -18,14 +18,21 @@
 
 // โฟลเดอร์ปลายทางบน Google Drive (จาก URL ที่ให้มา)
 var PARENT_FOLDER_ID = "1IEpgyCOQR1yoedUgfN7DoQ85lzZMOHAL";
+var INDEX_NAME = "_saiyai_index.json"; // ไฟล์ดัชนีกลาง (สรุปทุกงาน) เพื่อให้ทุกเครื่องเห็นชุดเดียวกัน
 
-function doGet() {
+function doGet(e) {
+  var action = e && e.parameter && e.parameter.action;
+  if (action === "list") {
+    var parent = DriveApp.getFolderById(PARENT_FOLDER_ID);
+    return jsonOut({ ok: true, reports: readIndex(parent) });
+  }
   return jsonOut({ ok: true, service: "Saiyai Drive endpoint" });
 }
 
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
+    if (data.action === "delete") return handleDelete(data);
     var parent = DriveApp.getFolderById(PARENT_FOLDER_ID);
 
     // ---- โฟลเดอร์ของงาน : "รหัสเลขงาน ชื่องาน" ----
@@ -58,10 +65,66 @@ function doPost(e) {
       });
     }
 
+    // ---- อัปเดตดัชนีกลาง (กันซ้ำด้วย id) ----
+    var lock = LockService.getScriptLock();
+    try { lock.waitLock(20000); } catch (le) {}
+    try {
+      var idx = readIndex(parent);
+      var entry = summaryEntry(data, jobFolder);
+      var key = String(data.id || batch);
+      entry.id = key;
+      idx = idx.filter(function (x) { return String(x.id) !== key; });
+      idx.unshift(entry);
+      writeIndex(parent, idx);
+    } finally { try { lock.releaseLock(); } catch (le2) {} }
+
     return jsonOut({ ok: true, folderId: jobFolder.getId(), folderUrl: jobFolder.getUrl() });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err) });
   }
+}
+
+function handleDelete(data) {
+  var parent = DriveApp.getFolderById(PARENT_FOLDER_ID);
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch (le) {}
+  try {
+    var idx = readIndex(parent);
+    var key = String(data.id || "");
+    var entry = idx.filter(function (x) { return String(x.id) === key; })[0];
+    idx = idx.filter(function (x) { return String(x.id) !== key; });
+    writeIndex(parent, idx);
+    if (entry && entry.folderId) {
+      try { DriveApp.getFolderById(entry.folderId).setTrashed(true); } catch (e) {}
+    }
+    return jsonOut({ ok: true });
+  } finally { try { lock.releaseLock(); } catch (le2) {} }
+}
+
+// สรุปงาน (ไม่รวมรูป base64) สำหรับเก็บลงดัชนี
+function summaryEntry(d, folder) {
+  return {
+    jobCode: d.jobCode || "", jobName: d.jobName || "", created: d.created || new Date().toISOString(),
+    folderId: folder.getId(), folderUrl: folder.getUrl(),
+    connectors: d.connectors || [], cables: d.cables || [], loops: d.loops || [],
+    spliceOfc: d.spliceOfc || "", splicePoints: d.splicePoints || "",
+    removeCable: d.removeCable || "no", removeDetail: d.removeDetail || "", detail: d.detail || "",
+    workCount: (d.workImages || []).length, removeCount: (d.removeImages || []).length,
+    synced: true
+  };
+}
+
+function readIndex(parent) {
+  var it = parent.getFilesByName(INDEX_NAME);
+  if (!it.hasNext()) return [];
+  try { return JSON.parse(it.next().getBlob().getDataAsString("UTF-8")) || []; } catch (e) { return []; }
+}
+
+function writeIndex(parent, arr) {
+  var content = JSON.stringify(arr);
+  var it = parent.getFilesByName(INDEX_NAME);
+  if (it.hasNext()) it.next().setContent(content);
+  else parent.createFile(INDEX_NAME, content, "application/json");
 }
 
 /* ---------------- helpers ---------------- */

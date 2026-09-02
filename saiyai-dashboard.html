@@ -663,12 +663,13 @@
 
   function markSyncing(id, on) { if (on) syncingIds[id] = true; else delete syncingIds[id]; refreshSaved(); }
   function syncReport(id) {
-    var rep = loadReports().filter(function (x) { return x.id === id; })[0];
+    var rep = loadReports().filter(function (x) { return String(x.id) === String(id); })[0];
     if (!rep) return;
     if (rep.synced) { toast("รายงานนี้ซิงค์แล้ว"); return; }
     if (!driveUrl()) { toast("ยังไม่ได้ตั้งค่า Google Drive (ไปที่ อื่นๆ › ตั้งค่า)"); return; }
     markSyncing(id, true);
     var payload = {
+      id: rep.id,
       jobCode: rep.jobCode, jobName: rep.jobName, created: rep.created,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
@@ -679,7 +680,7 @@
     uploadToDrive(payload, function (res) {
       markSyncing(id, false);
       if (res && res.ok) {
-        var l = loadReports(), it = l.filter(function (x) { return x.id === id; })[0];
+        var l = loadReports(), it = l.filter(function (x) { return String(x.id) === String(id); })[0];
         if (it) { it.synced = true; it.driveFolderUrl = res.folderUrl || ""; it.workImages = []; it.removeImages = []; try { saveReports(l); } catch (e) {} }
         refreshSaved();
         toast("อัปโหลดขึ้น Drive สำเร็จ ✓");
@@ -711,19 +712,35 @@
     return sum;
   }
 
+  var viewReports = [];
+  function mergeReports(drive, local) {
+    var map = {}, out = [];
+    drive.forEach(function (r) { r.synced = true; if (r.folderUrl) r.driveFolderUrl = r.folderUrl; map[String(r.id)] = true; out.push(r); });
+    local.forEach(function (r) { if (!map[String(r.id)]) out.push(r); });
+    out.sort(function (a, b) { return new Date(b.created) - new Date(a.created); });
+    return out;
+  }
   function refreshSaved() {
-    var list = loadReports();
+    var local = loadReports();
+    renderSavedList(mergeReports([], local), !!driveUrl());
+    if (driveUrl()) {
+      fetch(driveUrl() + "?action=list").then(function (r) { return r.json(); }).then(function (res) {
+        var drive = (res && res.ok && res.reports) ? res.reports : [];
+        renderSavedList(mergeReports(drive, loadReports()), false);
+      }).catch(function () { renderSavedList(mergeReports([], loadReports()), false); });
+    }
+  }
+  function renderSavedList(list, loading) {
+    viewReports = list;
     $("#savedCount").textContent = list.length;
-    // KPI
-    var totJobs = list.length;
     var totConn = 0, totMeters = 0, totPhotos = 0;
     list.forEach(function (r) {
       totConn += (r.connectors || []).length;
       totMeters += totalMeters(r.cables, r.loops);
-      totPhotos += (r.workImages || []).length + (r.removeImages || []).length;
+      totPhotos += (r.workCount != null ? r.workCount : (r.workImages || []).length) + (r.removeCount != null ? r.removeCount : (r.removeImages || []).length);
     });
     var kpis = [
-      { label: "รายงานทั้งหมด", v: totJobs, u: "งาน", c: "var(--accent)" },
+      { label: "รายงานทั้งหมด", v: list.length, u: "งาน", c: "var(--accent)" },
       { label: "หัวต่อรวม", v: totConn, u: "จุด", c: "var(--good)" },
       { label: "ความยาวสายรวม", v: totMeters.toLocaleString(), u: "M.", c: "var(--warn)" },
       { label: "รูปภาพทั้งหมด", v: totPhotos, u: "รูป", c: "var(--accent-deep)" }
@@ -733,13 +750,14 @@
         '<div class="kpi-value">' + k.v + ' <small>' + k.u + '</small></div></div>';
     }).join("");
 
+    var loadBar = loading ? '<div class="rc-meta" style="padding:4px 2px 12px;">⟳ กำลังโหลดจาก Google Drive…</div>' : '';
     if (!list.length) {
-      $("#reportList").innerHTML = '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>' +
-        '<h3>ยังไม่มีรายงาน</h3><p>รายงานที่บันทึกจากหน้า “รายงานประจำวัน” จะแสดงที่นี่</p>' +
+      $("#reportList").innerHTML = loadBar + '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>' +
+        '<h3>ยังไม่มีรายงาน</h3><p>รายงานที่บันทึกจากหน้า “รายงานประจำวัน” จะแสดงที่นี่ และซิงค์ให้ทุกเครื่องเห็นเหมือนกัน</p>' +
         '<button class="btn btn-primary" data-goto="daily">สร้างรายงานใหม่</button></div>';
       return;
     }
-    $("#reportList").innerHTML = list.map(function (r) {
+    $("#reportList").innerHTML = loadBar + list.map(function (r) {
       var imgs = (r.workImages || []).concat(r.removeImages || []);
       var thumbs = imgs.slice(0, 5).map(function (s) { return '<img src="' + s + '" alt="">'; }).join("");
       if (imgs.length > 5) thumbs += '<div class="rc-more">+' + (imgs.length - 5) + '</div>';
@@ -778,22 +796,34 @@
 
   document.addEventListener("click", function (e) {
     var v = e.target.closest("[data-view-report]");
-    if (v) { openReport(+v.getAttribute("data-view-report")); return; }
+    if (v) { openReport(v.getAttribute("data-view-report")); return; }
     var s = e.target.closest("[data-sync-report]");
-    if (s) { syncReport(+s.getAttribute("data-sync-report")); return; }
+    if (s) { syncReport(s.getAttribute("data-sync-report")); return; }
     var d = e.target.closest("[data-del-report]");
-    if (d) {
-      if (!confirm("ลบรายงานนี้?")) return;
-      var id = +d.getAttribute("data-del-report");
-      saveReports(loadReports().filter(function (r) { return r.id !== id; }));
-      refreshSaved(); toast("ลบรายงานแล้ว");
-    }
+    if (d) { deleteReport(d.getAttribute("data-del-report")); return; }
   });
+
+  function deleteReport(id) {
+    var rep = viewReports.filter(function (x) { return String(x.id) === String(id); })[0]
+      || loadReports().filter(function (x) { return String(x.id) === String(id); })[0];
+    if (!rep) return;
+    var onDrive = rep.synced && driveUrl();
+    if (!confirm(onDrive ? "ลบรายงานนี้? จะลบออกจากทุกเครื่องและย้ายโฟลเดอร์ใน Drive ไปถังขยะ" : "ลบรายงานนี้?")) return;
+    saveReports(loadReports().filter(function (x) { return String(x.id) !== String(id); }));
+    if (onDrive) {
+      toast("กำลังลบ…");
+      fetch(driveUrl(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "delete", id: rep.id }) })
+        .then(function (r) { return r.json(); })
+        .then(function () { refreshSaved(); toast("ลบแล้ว (ทุกเครื่อง)"); })
+        .catch(function () { refreshSaved(); toast("ลบในเครื่องแล้ว แต่ลบบน Drive ไม่สำเร็จ"); });
+    } else { refreshSaved(); toast("ลบรายงานแล้ว"); }
+  }
 
   /* ---------- report modal ---------- */
   function line(k, v) { return '<div class="rp-line"><div class="rp-key">' + k + '</div><div>' + v + '</div></div>'; }
   function openReport(id) {
-    var r = loadReports().filter(function (x) { return x.id === id; })[0];
+    var r = viewReports.filter(function (x) { return String(x.id) === String(id); })[0]
+      || loadReports().filter(function (x) { return String(x.id) === String(id); })[0];
     if (!r) return;
     var b = "";
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
