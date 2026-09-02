@@ -472,6 +472,19 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var STORE_KEY = "saiyai_reports_v1";
+  var DRIVE_KEY = "saiyai_drive_url";
+  // ใส่ URL Web App ตรงนี้ได้ เพื่อให้ทุกเครื่องใช้อัตโนมัติโดยไม่ต้องตั้งค่าเอง
+  var DRIVE_WEBAPP_URL = "";
+  var syncingIds = {};
+  function driveUrl() { var o = ""; try { o = localStorage.getItem(DRIVE_KEY) || ""; } catch (e) {} return (o || DRIVE_WEBAPP_URL).trim(); }
+  function uploadToDrive(payload, cb) {
+    var url = driveUrl();
+    if (!url) { cb({ ok: false, skipped: true }); return; }
+    fetch(url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) { cb(res); })
+      .catch(function (e) { cb({ ok: false, error: String(e) }); });
+  }
 
   /* ---------- date ---------- */
   var thMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -630,17 +643,53 @@
       removeCable: $('input[name="removeCable"]:checked').value,
       removeDetail: fval("removeDetail"),
       removeImages: imageStore.remove.slice(),
+      removeCount: imageStore.remove.length,
       detail: fval("detail"),
-      workImages: imageStore.work.slice()
+      workImages: imageStore.work.slice(),
+      workCount: imageStore.work.length,
+      synced: false,
+      driveFolderUrl: ""
     };
     if (!rep.jobCode && !rep.jobName) { toast("กรุณากรอกรหัสงานหรือชื่องานก่อนบันทึก"); return; }
     var list = loadReports(); list.unshift(rep);
     try { saveReports(list); }
     catch (err) { toast("พื้นที่จัดเก็บเต็ม — ลองลดจำนวนรูปหรือลบรายงานเก่า"); return; }
-    toast("บันทึกรายงานเรียบร้อย ✓");
     resetForm();
     refreshSaved();
+    go("saved");
+    if (driveUrl()) { toast("กำลังอัปโหลดขึ้น Google Drive…"); syncReport(rep.id); }
+    else { toast("บันทึกในเครื่องแล้ว ✓ (ยังไม่ได้ตั้งค่า Google Drive)"); }
   });
+
+  function markSyncing(id, on) { if (on) syncingIds[id] = true; else delete syncingIds[id]; refreshSaved(); }
+  function syncReport(id) {
+    var rep = loadReports().filter(function (x) { return x.id === id; })[0];
+    if (!rep) return;
+    if (rep.synced) { toast("รายงานนี้ซิงค์แล้ว"); return; }
+    if (!driveUrl()) { toast("ยังไม่ได้ตั้งค่า Google Drive (ไปที่ อื่นๆ › ตั้งค่า)"); return; }
+    markSyncing(id, true);
+    var payload = {
+      jobCode: rep.jobCode, jobName: rep.jobName, created: rep.created,
+      connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
+      spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
+      removeCable: rep.removeCable, removeDetail: rep.removeDetail,
+      detail: rep.detail,
+      workImages: rep.workImages || [], removeImages: rep.removeImages || []
+    };
+    uploadToDrive(payload, function (res) {
+      markSyncing(id, false);
+      if (res && res.ok) {
+        var l = loadReports(), it = l.filter(function (x) { return x.id === id; })[0];
+        if (it) { it.synced = true; it.driveFolderUrl = res.folderUrl || ""; it.workImages = []; it.removeImages = []; try { saveReports(l); } catch (e) {} }
+        refreshSaved();
+        toast("อัปโหลดขึ้น Drive สำเร็จ ✓");
+      } else if (res && res.skipped) {
+        toast("ยังไม่ได้ตั้งค่า Google Drive");
+      } else {
+        toast("อัปโหลดไม่สำเร็จ/ยืนยันไม่ได้ — เก็บในเครื่องไว้แล้ว ลองกดซิงค์อีกครั้ง");
+      }
+    });
+  }
 
   function resetForm() {
     $("#reportForm").reset();
@@ -694,28 +743,44 @@
       var imgs = (r.workImages || []).concat(r.removeImages || []);
       var thumbs = imgs.slice(0, 5).map(function (s) { return '<img src="' + s + '" alt="">'; }).join("");
       if (imgs.length > 5) thumbs += '<div class="rc-more">+' + (imgs.length - 5) + '</div>';
+      var photoCount = (r.workCount != null ? r.workCount : (r.workImages || []).length) + (r.removeCount != null ? r.removeCount : (r.removeImages || []).length);
       var stats = [];
       if ((r.connectors || []).length) stats.push('<span class="chip">หัวต่อ ' + r.connectors.length + '</span>');
       if ((r.cables || []).length) stats.push('<span class="chip">พาดสาย ' + r.cables.length + ' รายการ</span>');
       var m = totalMeters(r.cables, r.loops); if (m) stats.push('<span class="chip">' + m.toLocaleString() + ' M.</span>');
       if (r.splicePoints) stats.push('<span class="chip">ตัดต่อ ' + r.splicePoints + ' จุด</span>');
       if (r.removeCable === "yes") stats.push('<span class="chip">มีรื้อสายกลับ</span>');
+      if (photoCount) stats.push('<span class="chip">' + photoCount + ' รูป</span>');
+
+      var isSyncing = !!syncingIds[r.id];
+      var syncChip = isSyncing
+        ? '<span class="chip" style="color:var(--warn);border-color:var(--warn)">⟳ กำลังซิงค์…</span>'
+        : (r.synced ? '<span class="chip" style="color:var(--good);border-color:var(--good)">☁ ซิงค์แล้ว</span>'
+                    : '<span class="chip" style="color:var(--ink-faint)">◌ ยังไม่ซิงค์</span>');
+      stats.unshift(syncChip);
+
+      var media = thumbs ? '<div class="rc-thumbs">' + thumbs + '</div>'
+        : (r.synced ? '<div class="rc-meta" style="margin-top:10px;">รูปถูกจัดเก็บบน Google Drive แล้ว</div>' : '');
+
+      var actions = '<button class="btn btn-ghost btn-sm" data-view-report="' + r.id + '">ดูรายละเอียด</button>';
+      if (r.synced && r.driveFolderUrl) actions += '<a class="btn btn-ghost btn-sm" href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดใน Drive</a>';
+      else if (!isSyncing) actions += '<button class="btn btn-primary btn-sm" data-sync-report="' + r.id + '">อัปโหลดขึ้น Drive</button>';
+      actions += '<button class="btn btn-danger btn-sm" data-del-report="' + r.id + '">ลบ</button>';
+
       return '<div class="card report-card"><div>' +
         '<span class="rc-code">' + esc(r.jobCode || "—") + '</span>' +
         '<div class="rc-title">' + esc(r.jobName || "(ไม่ระบุชื่องาน)") + '</div>' +
         '<div class="rc-meta">บันทึกเมื่อ ' + fmtDateTime(new Date(r.created)) + '</div>' +
-        '<div class="rc-stats">' + (stats.join("") || '<span class="chip">ไม่มีรายการย่อย</span>') + '</div>' +
-        (thumbs ? '<div class="rc-thumbs">' + thumbs + '</div>' : '') +
-        '</div><div class="rc-actions">' +
-        '<button class="btn btn-ghost btn-sm" data-view-report="' + r.id + '">ดูรายละเอียด</button>' +
-        '<button class="btn btn-danger btn-sm" data-del-report="' + r.id + '">ลบ</button>' +
-        '</div></div>';
+        '<div class="rc-stats">' + stats.join("") + '</div>' + media +
+        '</div><div class="rc-actions">' + actions + '</div></div>';
     }).join("");
   }
 
   document.addEventListener("click", function (e) {
     var v = e.target.closest("[data-view-report]");
     if (v) { openReport(+v.getAttribute("data-view-report")); return; }
+    var s = e.target.closest("[data-sync-report]");
+    if (s) { syncReport(+s.getAttribute("data-sync-report")); return; }
     var d = e.target.closest("[data-del-report]");
     if (d) {
       if (!confirm("ลบรายงานนี้?")) return;
@@ -734,6 +799,7 @@
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
     b += line("ชื่องาน", esc(r.jobName || "—"));
     b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));
+    if (r.synced && r.driveFolderUrl) b += line("Google Drive", '<a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดโฟลเดอร์งานนี้ ↗</a>');
 
     if ((r.connectors || []).length) {
       b += '<div class="rp-h">ชื่อหัวต่อ (' + r.connectors.length + ')</div>';
@@ -757,9 +823,11 @@
     b += '<div class="rp-sub">' + (r.removeCable === "yes" ? "มีรื้อสายกลับ" : "ไม่มีสายรื้อกลับ") + '</div>';
     if (r.removeCable === "yes" && r.removeDetail) b += '<div class="rp-sub">' + esc(r.removeDetail) + '</div>';
     if ((r.removeImages || []).length) b += '<div class="rp-gallery">' + r.removeImages.map(function (s) { return '<img src="' + s + '">'; }).join("") + '</div>';
+    else if (r.removeCable === "yes" && r.removeCount && r.synced) b += '<div class="rp-sub">รูปรื้อกลับ ' + r.removeCount + ' รูป (อยู่บน Google Drive)</div>';
 
     if (r.detail) { b += '<div class="rp-h">รายละเอียดการทำงาน</div><div class="rp-sub">' + esc(r.detail).replace(/\n/g, "<br>") + '</div>'; }
     if ((r.workImages || []).length) { b += '<div class="rp-h">ภาพงาน (' + r.workImages.length + ')</div><div class="rp-gallery">' + r.workImages.map(function (s) { return '<img src="' + s + '">'; }).join("") + '</div>'; }
+    else if (r.workCount && r.synced) b += '<div class="rp-h">ภาพงาน (' + r.workCount + ')</div><div class="rp-sub">รูปทั้งหมดถูกจัดเก็บบน Google Drive แล้ว — <a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดดู ↗</a></div>';
 
     $("#modalTitle").textContent = r.jobCode || r.jobName || "รายละเอียดรายงาน";
     $("#modalBody").innerHTML = b;
@@ -784,8 +852,53 @@
   function ph(title, body) {
     return '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><h3>' + title + '</h3><p>' + body + '</p><button class="btn btn-primary" data-goto="daily">ไปที่รายงานประจำวัน</button></div>';
   }
-  $("#view-settings").innerHTML = ph("ตั้งค่าระบบ", "ส่วนนี้พร้อมสำหรับกำหนดรูปแบบรหัสงาน ข้อมูลทีม และการเชื่อมต่อฐานข้อมูลจริง — บอกได้เลยว่าต้องการอะไรบ้าง");
-  $("#view-help").innerHTML = ph("ศูนย์ช่วยเหลือ", "กรอกฟอร์มในหน้ารายงานประจำวัน แล้วกด “บันทึกรายงาน” ระบบจะเก็บไว้ในเครื่องนี้และแสดงในหน้ารายงานที่บันทึก");
+  var DRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1IEpgyCOQR1yoedUgfN7DoQ85lzZMOHAL";
+  function renderSettings() {
+    var cur = ""; try { cur = localStorage.getItem(DRIVE_KEY) || ""; } catch (e) {}
+    var connected = !!driveUrl();
+    var unsynced = loadReports().filter(function (r) { return !r.synced; }).length;
+    $("#view-settings").innerHTML =
+      '<div class="card fsec" style="max-width:760px;">' +
+        '<div class="fsec-head"><div class="fsec-num">☁</div><div><h3 class="fsec-title">การเชื่อมต่อ Google Drive</h3><p class="fsec-desc">เก็บรายงานและรูปลงโฟลเดอร์ Drive แยกโฟลเดอร์ตามงาน (รหัสงาน + ชื่องาน)</p></div></div>' +
+        '<div class="field" style="margin-bottom:14px;"><label>Google Apps Script Web App URL</label>' +
+          '<input type="text" id="driveUrlInput" placeholder="https://script.google.com/macros/s/xxxxx/exec" value="' + esc(cur) + '"></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+          '<button class="btn btn-primary" id="saveDriveBtn">บันทึก URL</button>' +
+          '<button class="btn btn-ghost" id="testDriveBtn">ทดสอบการเชื่อมต่อ</button>' +
+          (unsynced ? '<button class="btn btn-ghost" id="syncAllBtn">ซิงค์ที่ค้างทั้งหมด (' + unsynced + ')</button>' : '') +
+          '<a class="btn btn-ghost" href="' + DRIVE_FOLDER_LINK + '" target="_blank" rel="noopener">เปิดโฟลเดอร์ปลายทาง ↗</a>' +
+        '</div>' +
+        '<p id="driveStatus" style="margin-top:14px;font-size:13.5px;font-weight:600;color:' + (connected ? 'var(--good)' : 'var(--ink-faint)') + ';">' + (connected ? '● ตั้งค่าแล้ว — พร้อมอัปโหลด' : '○ ยังไม่ได้ตั้งค่า') + '</p>' +
+        '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);line-height:1.8;">' +
+          '<b style="color:var(--ink);">วิธีตั้งค่า (ทำครั้งเดียว):</b><br>' +
+          '1. เปิด <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → New project<br>' +
+          '2. วางโค้ดไฟล์ <span class="mono">Code.gs</span> ที่ได้รับ แล้ว Save<br>' +
+          '3. Deploy → New deployment → type <b>Web app</b> · Execute as <b>Me</b> · Access <b>Anyone</b><br>' +
+          '4. อนุญาตสิทธิ์ Drive แล้วคัดลอก <b>Web app URL</b> (ลงท้าย <span class="mono">/exec</span>) มาวางด้านบน กดบันทึก' +
+        '</div>' +
+      '</div>';
+    var save = $("#saveDriveBtn"); if (save) save.addEventListener("click", function () {
+      var u = $("#driveUrlInput").value.trim();
+      try { localStorage.setItem(DRIVE_KEY, u); } catch (e) {}
+      toast(u ? "บันทึก URL แล้ว ✓" : "ล้างค่า URL แล้ว"); renderSettings(); refreshSaved();
+    });
+    var test = $("#testDriveBtn"); if (test) test.addEventListener("click", function () {
+      var u = ($("#driveUrlInput").value || driveUrl()).trim();
+      if (!u) { toast("กรุณาใส่ URL ก่อน"); return; }
+      var st = $("#driveStatus"); st.textContent = "⟳ กำลังทดสอบ…"; st.style.color = "var(--warn)";
+      fetch(u, { method: "GET" }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.ok) { st.textContent = "● เชื่อมต่อสำเร็จ"; st.style.color = "var(--good)"; }
+        else { st.textContent = "△ ตอบกลับผิดปกติ — ตรวจสอบการ Deploy"; st.style.color = "var(--warn)"; }
+      }).catch(function () {
+        st.textContent = "△ อ่านผลไม่ได้ (อาจเป็นเรื่อง CORS) — การอัปโหลดจริงอาจยังใช้ได้ ให้ลองบันทึกรายงานหนึ่งใบ"; st.style.color = "var(--warn)";
+      });
+    });
+    var all = $("#syncAllBtn"); if (all) all.addEventListener("click", function () {
+      loadReports().filter(function (r) { return !r.synced; }).forEach(function (r) { syncReport(r.id); });
+    });
+  }
+  renderSettings();
+  $("#view-help").innerHTML = ph("ศูนย์ช่วยเหลือ", "กรอกฟอร์มในหน้ารายงานประจำวัน แล้วกด “บันทึกรายงาน” ระบบจะเก็บในเครื่องและอัปโหลดขึ้น Google Drive (เมื่อตั้งค่าแล้ว) โดยแยกโฟลเดอร์ตามงานอัตโนมัติ");
 
   /* ---------- routing ---------- */
   var titles = {
@@ -804,6 +917,7 @@
     var t = titles[view] || titles.daily;
     $("#pageTitle").textContent = t[0]; $("#pageSub").textContent = t[1];
     if (view === "saved") refreshSaved();
+    if (view === "settings") renderSettings();
     try { localStorage.setItem("saiyai_view", view); } catch (e) {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
