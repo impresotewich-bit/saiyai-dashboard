@@ -353,8 +353,8 @@
           <div class="grid2" style="margin-top:14px;">
             <div class="field"><label>วันที่</label>
               <input type="date" name="jobDate"></div>
-            <div class="field"><label>เวลา</label>
-              <input type="time" name="jobTime"></div>
+            <div class="field"><label>เวลา (24 ชม.)</label>
+              <select name="jobTime"></select></div>
           </div>
         </div>
 
@@ -534,12 +534,31 @@
   function fmtDateTime(d) { var p = function(n){return (n<10?"0":"")+n;}; return d.getDate()+" "+thMonths[d.getMonth()].slice(0,3)+" "+(d.getFullYear()+543)+" · "+p(d.getHours())+":"+p(d.getMinutes()); }
   $("#todayDate").textContent = fmtDate(new Date());
 
+  function buildTimeOptions() {
+    var sel = $('[name="jobTime"]'); if (!sel || sel.options.length) return;
+    var html = "";
+    for (var h = 0; h < 24; h++) for (var m = 0; m < 60; m += 15) {
+      var t = (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+      html += '<option value="' + t + '">' + t + ' น.</option>';
+    }
+    sel.innerHTML = html;
+  }
+  function ensureTimeOption(val) {
+    var sel = $('[name="jobTime"]'); if (!sel || !val) return;
+    var has = Array.prototype.some.call(sel.options, function (o) { return o.value === val; });
+    if (!has) { var o = document.createElement("option"); o.value = val; o.textContent = val + " น."; sel.appendChild(o); }
+  }
   function setDateTimeDefaults() {
     var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
     var di = $('[name="jobDate"]'), ti = $('[name="jobTime"]');
     if (di) di.value = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
-    if (ti) ti.value = p(d.getHours()) + ":" + p(d.getMinutes());
+    if (ti) {
+      var mins = Math.round((d.getHours() * 60 + d.getMinutes()) / 15) * 15;
+      if (mins >= 1440) mins = 1425;
+      ti.value = p(Math.floor(mins / 60)) + ":" + p(mins % 60);
+    }
   }
+  buildTimeOptions();
   function fmtJobDate(iso) {
     if (!iso) return "-";
     var p = iso.split("-"); if (p.length !== 3) return iso;
@@ -753,6 +772,7 @@
     editingId = rep.id;
     editingOriginal = JSON.parse(JSON.stringify(rep));
     function set(name, v) { var el = $('[name="' + name + '"]'); if (el) el.value = v || ""; }
+    ensureTimeOption(rep.jobTime);
     set("jobCode", rep.jobCode); set("jobName", rep.jobName); set("jobDate", rep.jobDate); set("jobTime", rep.jobTime);
     set("spliceOfc", rep.spliceOfc); set("splicePoints", rep.splicePoints); set("detail", rep.detail); set("removeDetail", rep.removeDetail);
     var yes = rep.removeCable === "yes";
