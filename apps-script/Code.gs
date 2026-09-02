@@ -114,6 +114,7 @@ function handleDelete(data) {
 function summaryEntry(d, folder) {
   return {
     jobCode: d.jobCode || "", jobName: d.jobName || "", jobDate: d.jobDate || "", jobTime: d.jobTime || "", created: d.created || new Date().toISOString(),
+    urgentOnly: !!d.urgentOnly,
     folderId: folder.getId(), folderUrl: folder.getUrl(),
     connectors: d.connectors || [], cables: d.cables || [], loops: d.loops || [],
     spliceOfc: d.spliceOfc || "", splicePoints: d.splicePoints || "",
@@ -184,6 +185,7 @@ function buildSummary(d) {
   L.push("รหัสเลขงาน : " + (d.jobCode || "-"));
   L.push("สถานที่ปฏิบัติงาน     : " + (d.jobName || "-"));
   L.push("วันที่/เวลา : " + (d.jobDate || "-") + (d.jobTime ? " " + d.jobTime + " น." : ""));
+  if (d.urgentOnly) L.push("ประเภท : *** เบิกเฉพาะค่าเร่งด่วน ***");
   L.push("บันทึกเมื่อ : " + (d.created || "-"));
   L.push("");
 

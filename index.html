@@ -171,6 +171,17 @@
     font-size: 12.5px; color: var(--ink-faint); pointer-events: none; }
   .suffix-wrap input { padding-right: 42px; }
 
+  .urgent-toggle { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); cursor: pointer;
+    transition: border-color .15s, background .15s; }
+  .urgent-toggle:hover { border-color: var(--warn); }
+  .urgent-toggle input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--warn); flex: none; cursor: pointer; }
+  .urgent-toggle .ut-text { display: flex; flex-direction: column; gap: 2px; }
+  .urgent-toggle .ut-text b { font-size: 14.5px; font-weight: 600; }
+  .urgent-toggle .ut-text small { font-size: 12px; color: var(--ink-faint); }
+  .urgent-toggle.on { border-color: var(--warn); background: var(--warn-soft); }
+  .urgent-toggle.on .ut-text b { color: var(--warn); }
+
   /* dynamic rows */
   .rows { display: flex; flex-direction: column; gap: 12px; }
   .row-item { display: grid; gap: 12px; align-items: end; padding: 14px; border: 1px solid var(--line);
@@ -432,6 +443,13 @@
               </div>
             </div>
           </div>
+          <label class="urgent-toggle" id="urgentToggle">
+            <input type="checkbox" name="urgentOnly" id="urgentOnly">
+            <span class="ut-text">
+              <b>เบิกเฉพาะค่าเร่งด่วน</b>
+              <small>เลือกแล้วจะซ่อนหัวข้อ 2–7 (กรอกเฉพาะข้อมูลงานและภาพงาน)</small>
+            </span>
+          </label>
         </div>
 
         <!-- 3 หัวต่อ -->
@@ -779,6 +797,17 @@
     });
   });
 
+  /* ---------- urgent-only (เบิกเฉพาะค่าเร่งด่วน) ---------- */
+  var optionalSecs = $$("#view-daily .card.fsec").filter(function (sec) {
+    var n = $(".fsec-num", sec); return n && ["2", "3", "4", "5", "6", "7"].indexOf(n.textContent.trim()) >= 0;
+  });
+  function applyUrgentUI() {
+    var on = $("#urgentOnly") && $("#urgentOnly").checked;
+    optionalSecs.forEach(function (s) { s.hidden = !!on; });
+    var t = $("#urgentToggle"); if (t) t.classList.toggle("on", !!on);
+  }
+  if ($("#urgentOnly")) $("#urgentOnly").addEventListener("change", applyUrgentUI);
+
   /* ---------- collect + save ---------- */
   function readRows(box, type) {
     return $$(".row-item", box).map(function (el) {
@@ -795,17 +824,24 @@
 
   // เก็บเฉพาะฟิลด์ข้อมูล (ไม่รวมรูป/id) ใช้ร่วมกันทั้งบันทึกใหม่และแก้ไข
   function collectFormData() {
-    return {
+    var urgent = $("#urgentOnly") && $("#urgentOnly").checked;
+    var base = {
       jobCode: fval("jobCode"), jobName: fval("jobName"),
       jobDate: fval("jobDate"), jobTime: jobTimeValue(),
-      connectors: readRows($("#connectorRows"), "connector"),
-      cables: readRows($("#cableRows"), "cable"),
-      loops: readRows($("#loopRows"), "loop"),
-      spliceOfc: fval("spliceOfc"), splicePoints: fval("splicePoints"),
-      removeCable: $('input[name="removeCable"]:checked').value,
-      removeDetail: fval("removeDetail"),
-      detail: fval("detail")
+      urgentOnly: !!urgent,
+      connectors: [], cables: [], loops: [],
+      spliceOfc: "", splicePoints: "",
+      removeCable: "none", removeDetail: "", detail: ""
     };
+    if (!urgent) {
+      base.connectors = readRows($("#connectorRows"), "connector");
+      base.cables = readRows($("#cableRows"), "cable");
+      base.loops = readRows($("#loopRows"), "loop");
+      base.spliceOfc = fval("spliceOfc"); base.splicePoints = fval("splicePoints");
+      base.removeCable = $('input[name="removeCable"]:checked').value;
+      base.removeDetail = fval("removeDetail"); base.detail = fval("detail");
+    }
+    return base;
   }
 
   var editingId = null, editingOriginal = null;
@@ -833,6 +869,7 @@
   /* ---------- edit ---------- */
   var FIELD_LABELS = [
     ["jobCode", "รหัสเลขงาน"], ["jobName", "สถานที่ปฏิบัติงาน"], ["jobDate", "วันที่"], ["jobTime", "เวลา"],
+    ["urgentOnly", "เบิกเฉพาะค่าเร่งด่วน"],
     ["spliceOfc", "จุดตัดต่อ OFC"], ["splicePoints", "จำนวนจุดตัดต่อ"],
     ["removeCable", "การรื้อสายกลับ"], ["removeDetail", "เส้นที่รื้อกลับ"], ["detail", "รายละเอียดการทำงาน"]
   ];
@@ -844,6 +881,7 @@
       var a = (o[p[0]] || "") + "", b = (n[p[0]] || "") + "";
       if (a !== b) {
         if (p[0] === "removeCable") { a = rcLabel(a); b = rcLabel(b); }
+        if (p[0] === "urgentOnly") { a = (o.urgentOnly ? "ใช่" : "ไม่ใช่"); b = (n.urgentOnly ? "ใช่" : "ไม่ใช่"); }
         out.push(p[1] + ": “" + (trunc(a) || "-") + "” → “" + (trunc(b) || "-") + "”");
       }
     });
@@ -874,6 +912,8 @@
     (rep.cables && rep.cables.length ? rep.cables : [null]).forEach(function (c) { var el = addRow("cable"); if (c) { setVal(el, ".f-ofc", c.ofc); setVal(el, ".f-drum", c.drum); setVal(el, ".f-ml", c.ml); setVal(el, ".f-len", c.len); } });
     (rep.loops && rep.loops.length ? rep.loops : [null]).forEach(function (c) { var el = addRow("loop"); if (c) { setVal(el, ".f-ml", c.ml); setVal(el, ".f-len", c.len); } });
     imageStore.work = []; imageStore.remove = []; renderThumbs("work"); renderThumbs("remove");
+    if ($("#urgentOnly")) $("#urgentOnly").checked = !!rep.urgentOnly;
+    applyUrgentUI();
     $("#workImageSection").hidden = true; $("#removeImageBlock").hidden = true;
     $("#editBanner").hidden = false;
     $("#editBannerCode").textContent = ((rep.jobCode || "") + " " + (rep.jobName || "")).trim() || "(ไม่ระบุ)";
@@ -913,6 +953,7 @@
     markSyncing(rep.id, true);
     var payload = {
       id: rep.id, jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
+      urgentOnly: rep.urgentOnly,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
       removeCable: rep.removeCable, removeDetail: rep.removeDetail, detail: rep.detail,
@@ -939,6 +980,7 @@
     var payload = {
       id: rep.id,
       jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
+      urgentOnly: rep.urgentOnly,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
       removeCable: rep.removeCable, removeDetail: rep.removeDetail,
@@ -970,6 +1012,7 @@
     ["connector", "cable", "loop"].forEach(function (t) { addRow(t); });
     $$("#removeChoice label").forEach(function (l, i) { l.classList.toggle("sel", i === 0); });
     $("#removeCond").classList.remove("show");
+    applyUrgentUI();
   }
   $("#clearBtn").addEventListener("click", function () { if (confirm("ล้างข้อมูลในฟอร์มทั้งหมด?")) resetForm(); });
 
@@ -1077,6 +1120,7 @@
         : (r.synced ? '<span class="chip" style="color:var(--good);border-color:var(--good)">☁ ซิงค์แล้ว</span>'
                     : '<span class="chip" style="color:var(--ink-faint)">◌ ยังไม่ซิงค์</span>');
       stats.unshift(syncChip);
+      if (r.urgentOnly) stats.unshift('<span class="chip" style="color:var(--warn);border-color:var(--warn)">⚡ เร่งด่วน</span>');
       if (r.editLog && r.editLog.length) stats.push('<span class="chip" style="color:var(--warn);border-color:var(--warn)">🖊 แก้ไข ' + r.editLog.length + ' ครั้ง</span>');
 
       var media = thumbs ? '<div class="rc-thumbs">' + thumbs + '</div>'
@@ -1138,6 +1182,7 @@
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
     b += line("สถานที่ปฏิบัติงาน", esc(r.jobName || "—"));
     if (r.jobDate || r.jobTime) b += line("วันที่ / เวลา", fmtJobDate(r.jobDate) + (r.jobTime ? " · " + esc(r.jobTime) + " น." : ""));
+    if (r.urgentOnly) b += line("ประเภท", '<b style="color:var(--warn)">⚡ เบิกเฉพาะค่าเร่งด่วน</b>');
     b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));
     if (r.synced && r.driveFolderUrl) b += line("Google Drive", '<a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดโฟลเดอร์งานนี้ ↗</a>');
 
