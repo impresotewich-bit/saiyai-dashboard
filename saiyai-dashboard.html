@@ -130,7 +130,7 @@
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 
-  input[type=text], input[type=number], textarea, select {
+  input[type=text], input[type=number], input[type=date], input[type=time], textarea, select {
     width: 100%; font-family: inherit; font-size: 14px; color: var(--ink);
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px;
     transition: border-color .15s, box-shadow .15s; }
@@ -332,6 +332,12 @@
             <div class="field"><label>สถานที่ปฏิบัติงาน</label>
               <input type="text" name="jobName" placeholder="เช่น ซอยลาดพร้าว 15 / ชุมสาย XYZ"></div>
           </div>
+          <div class="grid2" style="margin-top:14px;">
+            <div class="field"><label>วันที่</label>
+              <input type="date" name="jobDate"></div>
+            <div class="field"><label>เวลา</label>
+              <input type="time" name="jobTime"></div>
+          </div>
         </div>
 
         <!-- 3 หัวต่อ -->
@@ -495,6 +501,19 @@
   function fmtDateTime(d) { var p = function(n){return (n<10?"0":"")+n;}; return d.getDate()+" "+thMonths[d.getMonth()].slice(0,3)+" "+(d.getFullYear()+543)+" · "+p(d.getHours())+":"+p(d.getMinutes()); }
   $("#todayDate").textContent = fmtDate(new Date());
 
+  function setDateTimeDefaults() {
+    var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    var di = $('[name="jobDate"]'), ti = $('[name="jobTime"]');
+    if (di) di.value = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    if (ti) ti.value = p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function fmtJobDate(iso) {
+    if (!iso) return "-";
+    var p = iso.split("-"); if (p.length !== 3) return iso;
+    return p[2] + " " + (thMonths[(+p[1]) - 1] || "") + " " + (parseInt(p[0], 10) + 543);
+  }
+  setDateTimeDefaults();
+
   function toast(msg) {
     var t = $("#toast"); t.textContent = msg; t.classList.add("show");
     clearTimeout(t._to); t._to = setTimeout(function () { t.classList.remove("show"); }, 2400);
@@ -638,6 +657,7 @@
       id: Date.now(),
       created: new Date().toISOString(),
       jobCode: fval("jobCode"), jobName: fval("jobName"),
+      jobDate: fval("jobDate"), jobTime: fval("jobTime"),
       connectors: readRows($("#connectorRows"), "connector"),
       cables: readRows($("#cableRows"), "cable"),
       loops: readRows($("#loopRows"), "loop"),
@@ -672,7 +692,7 @@
     markSyncing(id, true);
     var payload = {
       id: rep.id,
-      jobCode: rep.jobCode, jobName: rep.jobName, created: rep.created,
+      jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
       removeCable: rep.removeCable, removeDetail: rep.removeDetail,
@@ -696,6 +716,7 @@
 
   function resetForm() {
     $("#reportForm").reset();
+    setDateTimeDefaults();
     imageStore.work = []; imageStore.remove = [];
     renderThumbs("work"); renderThumbs("remove");
     ["#connectorRows", "#cableRows", "#loopRows"].forEach(function (s) { $(s).innerHTML = ""; });
@@ -790,7 +811,7 @@
       return '<div class="card report-card"><div>' +
         '<span class="rc-code">' + esc(r.jobCode || "—") + '</span>' +
         '<div class="rc-title">' + esc(r.jobName || "(ไม่ระบุสถานที่ปฏิบัติงาน)") + '</div>' +
-        '<div class="rc-meta">บันทึกเมื่อ ' + fmtDateTime(new Date(r.created)) + '</div>' +
+        '<div class="rc-meta">' + (r.jobDate ? 'วันที่ปฏิบัติงาน ' + fmtJobDate(r.jobDate) + (r.jobTime ? ' · ' + esc(r.jobTime) + ' น.' : '') : 'บันทึกเมื่อ ' + fmtDateTime(new Date(r.created))) + '</div>' +
         '<div class="rc-stats">' + stats.join("") + '</div>' + media +
         '</div><div class="rc-actions">' + actions + '</div></div>';
     }).join("");
@@ -830,6 +851,7 @@
     var b = "";
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
     b += line("สถานที่ปฏิบัติงาน", esc(r.jobName || "—"));
+    if (r.jobDate || r.jobTime) b += line("วันที่ / เวลา", fmtJobDate(r.jobDate) + (r.jobTime ? " · " + esc(r.jobTime) + " น." : ""));
     b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));
     if (r.synced && r.driveFolderUrl) b += line("Google Drive", '<a href="' + esc(r.driveFolderUrl) + '" target="_blank" rel="noopener">เปิดโฟลเดอร์งานนี้ ↗</a>');
 
