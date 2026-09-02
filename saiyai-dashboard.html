@@ -396,12 +396,6 @@
     <section class="view active" id="view-daily">
       <form class="form" id="reportForm" autocomplete="off">
 
-        <div class="edit-banner" id="editBanner" hidden>
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
-          <span>กำลังแก้ไขรายงาน <b id="editBannerCode"></b></span>
-          <button type="button" class="btn btn-ghost btn-sm" id="cancelEditBtn">ยกเลิกการแก้ไข</button>
-        </div>
-
         <!-- 1 & 2 -->
         <div class="card fsec">
           <div class="fsec-head">
@@ -898,17 +892,13 @@
     if ($("#urgentOnly")) $("#urgentOnly").checked = !!rep.urgentOnly;
     applyUrgentUI();
     $("#workImageSection").hidden = true; $("#removeImageBlock").hidden = true;
-    $("#editBanner").hidden = false;
-    $("#editBannerCode").textContent = ((rep.jobCode || "") + " " + (rep.jobName || "")).trim() || "(ไม่ระบุ)";
     $("#submitLabel").textContent = "บันทึกการแก้ไข";
   }
   function clearEditState() {
     editingId = null; editingOriginal = null;
-    $("#editBanner").hidden = true;
     $("#submitLabel").textContent = "บันทึกรายงาน";
     $("#workImageSection").hidden = false; $("#removeImageBlock").hidden = false;
   }
-  $("#cancelEditBtn").addEventListener("click", function () { clearEditState(); resetForm(); toast("ยกเลิกการแก้ไขแล้ว"); });
 
   function saveEdit() {
     var orig = editingOriginal;
