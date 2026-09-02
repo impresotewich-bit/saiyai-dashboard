@@ -184,6 +184,13 @@
     position: sticky; bottom: 0; padding: 16px 0 0; }
 
   /* ---------- saved list ---------- */
+  .saved-toolbar { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 220px; position: relative; display: flex; align-items: center; }
+  .search-box svg { position: absolute; left: 13px; color: var(--ink-faint); pointer-events: none; }
+  .search-box input { padding-left: 40px; }
+  .saved-toolbar select { width: auto; min-width: 200px; cursor: pointer; }
+  .results-note { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 14px; min-height: 16px; }
+  @media (max-width: 620px) { .saved-toolbar select { width: 100%; } }
   .report-list { display: flex; flex-direction: column; gap: 14px; }
   .report-card { padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 12px 18px; align-items: start; }
   .rc-code { font-family: "IBM Plex Mono"; font-weight: 600; font-size: 12.5px; color: var(--accent-deep);
@@ -444,6 +451,19 @@
     <section class="view" id="view-saved">
       <div class="kpi-grid" id="savedKpi"></div>
       <div style="height:20px;"></div>
+      <div class="saved-toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" placeholder="ค้นหา รหัสงาน / สถานที่ / หัวต่อ / รายละเอียด…">
+        </div>
+        <select id="periodFilter" aria-label="กรองตามช่วงเวลา">
+          <option value="all">ทุกช่วงเวลา</option>
+          <option value="today">รายวัน (วันนี้)</option>
+          <option value="week">รายสัปดาห์ (สัปดาห์นี้)</option>
+          <option value="month">รายเดือน (เดือนนี้)</option>
+        </select>
+      </div>
+      <div class="results-note" id="resultsNote"></div>
       <div class="report-list" id="reportList"></div>
     </section>
 
@@ -753,28 +773,61 @@
       }).catch(function () { renderSavedList(mergeReports([], loadReports()), false); });
     }
   }
+  var savedAll = [], savedLoading = false;
+  function getRepDate(r) {
+    if (r.jobDate) { var p = r.jobDate.split("-"); if (p.length === 3) return new Date(+p[0], (+p[1]) - 1, +p[2]); }
+    return new Date(r.created);
+  }
+  function inPeriod(r, period) {
+    if (period === "all") return true;
+    var d = getRepDate(r), now = new Date();
+    if (period === "today") return d.toDateString() === now.toDateString();
+    if (period === "week") {
+      var s = new Date(now); s.setHours(0, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); // จันทร์
+      var e = new Date(s); e.setDate(e.getDate() + 7);
+      return d >= s && d < e;
+    }
+    if (period === "month") return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    return true;
+  }
+  function searchText(r) {
+    var parts = [r.jobCode, r.jobName, r.detail, r.removeDetail, r.jobDate, r.jobTime];
+    (r.connectors || []).forEach(function (c) { parts.push(c.name, c.coord); });
+    (r.cables || []).forEach(function (c) { parts.push(c.drum, c.ml, c.ofc); });
+    return parts.filter(Boolean).join(" ").toLowerCase();
+  }
   function renderSavedList(list, loading) {
-    viewReports = list;
-    $("#savedCount").textContent = list.length;
-    var totConn = 0, totMeters = 0, totPhotos = 0;
-    list.forEach(function (r) {
-      totConn += (r.connectors || []).length;
-      totMeters += totalMeters(r.cables, r.loops);
-      totPhotos += (r.workCount != null ? r.workCount : (r.workImages || []).length) + (r.removeCount != null ? r.removeCount : (r.removeImages || []).length);
+    savedAll = list; viewReports = list; savedLoading = loading;
+    $("#savedKpi").innerHTML = '<div class="card kpi"><div class="kpi-head"><span class="kpi-dot" style="background:var(--accent)"></span>รายงานทั้งหมด</div>' +
+      '<div class="kpi-value">' + list.length + ' <small>งาน</small></div></div>';
+    applyFilters();
+  }
+  function applyFilters() {
+    var q = ($("#searchInput") ? $("#searchInput").value : "").trim().toLowerCase();
+    var period = $("#periodFilter") ? $("#periodFilter").value : "all";
+    var filtered = savedAll.filter(function (r) {
+      if (!inPeriod(r, period)) return false;
+      if (q && searchText(r).indexOf(q) < 0) return false;
+      return true;
     });
-    var kpis = [
-      { label: "รายงานทั้งหมด", v: list.length, u: "งาน", c: "var(--accent)" }
-    ];
-    $("#savedKpi").innerHTML = kpis.map(function (k) {
-      return '<div class="card kpi"><div class="kpi-head"><span class="kpi-dot" style="background:' + k.c + '"></span>' + k.label + '</div>' +
-        '<div class="kpi-value">' + k.v + ' <small>' + k.u + '</small></div></div>';
-    }).join("");
-
-    var loadBar = loading ? '<div class="rc-meta" style="padding:4px 2px 12px;">⟳ กำลังโหลดจาก Google Drive…</div>' : '';
-    if (!list.length) {
+    $("#savedCount").textContent = savedAll.length;
+    var note = $("#resultsNote");
+    if (note) note.textContent = (q || period !== "all")
+      ? "พบ " + filtered.length + " รายการ จากทั้งหมด " + savedAll.length
+      : (savedAll.length ? savedAll.length + " รายการ" : "");
+    renderCards(filtered);
+  }
+  function renderCards(list) {
+    var loadBar = savedLoading ? '<div class="rc-meta" style="padding:4px 2px 12px;">⟳ กำลังโหลดจาก Google Drive…</div>' : '';
+    if (!savedAll.length) {
       $("#reportList").innerHTML = loadBar + '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>' +
         '<h3>ยังไม่มีรายงาน</h3><p>รายงานที่บันทึกจากหน้า “รายงานการทำงาน” จะแสดงที่นี่ และซิงค์ให้ทุกเครื่องเห็นเหมือนกัน</p>' +
         '<button class="btn btn-primary" data-goto="daily">สร้างรายงานใหม่</button></div>';
+      return;
+    }
+    if (!list.length) {
+      $("#reportList").innerHTML = loadBar + '<div class="card placeholder"><svg class="ph-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>' +
+        '<h3>ไม่พบผลลัพธ์</h3><p>ไม่มีรายงานที่ตรงกับคำค้นหาหรือช่วงเวลาที่เลือก ลองปรับคำค้นหรือเปลี่ยนตัวกรอง</p></div>';
       return;
     }
     $("#reportList").innerHTML = loadBar + list.map(function (r) {
@@ -985,6 +1038,10 @@
     root.setAttribute("data-theme", next);
     try { localStorage.setItem("saiyai_theme", next); } catch (e) {}
   });
+
+  /* ---------- search & filter ---------- */
+  if ($("#searchInput")) $("#searchInput").addEventListener("input", applyFilters);
+  if ($("#periodFilter")) $("#periodFilter").addEventListener("change", applyFilters);
 
   /* ---------- init ---------- */
   setupUploaders();
