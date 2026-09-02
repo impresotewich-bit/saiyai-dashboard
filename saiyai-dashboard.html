@@ -473,8 +473,8 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var STORE_KEY = "saiyai_reports_v1";
   var DRIVE_KEY = "saiyai_drive_url";
-  // ใส่ URL Web App ตรงนี้ได้ เพื่อให้ทุกเครื่องใช้อัตโนมัติโดยไม่ต้องตั้งค่าเอง
-  var DRIVE_WEBAPP_URL = "";
+  // URL Web App (Google Apps Script) — ฝังไว้ให้ทุกเครื่องใช้อัตโนมัติ
+  var DRIVE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwga_Rl8QTC9PzxITf6WGIgmXReJRWH7OMr1vno5gkXhRnrD3NqFptnoURIHUMvszCj/exec";
   var syncingIds = {};
   function driveUrl() { var o = ""; try { o = localStorage.getItem(DRIVE_KEY) || ""; } catch (e) {} return (o || DRIVE_WEBAPP_URL).trim(); }
   function uploadToDrive(payload, cb) {
