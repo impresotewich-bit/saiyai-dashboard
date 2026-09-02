@@ -277,6 +277,44 @@
     .report-card { grid-template-columns: 1fr; }
     .rc-actions { flex-direction: row; }
   }
+
+  /* ---------- mobile app ---------- */
+  .mobile-only { display: none; }
+  .bottom-nav { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(28,35,33,.06); }
+  .bottom-nav button { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; color: var(--ink-faint); font-family: inherit; font-size: 11px; font-weight: 600;
+    padding: 7px 4px; cursor: pointer; border-radius: 10px; -webkit-tap-highlight-color: transparent; }
+  .bottom-nav button.active { color: var(--accent); }
+  .bottom-nav button svg { width: 23px; height: 23px; }
+  .bottom-nav .bn-badge { position: absolute; top: 3px; left: 50%; margin-left: 6px;
+    background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px;
+    line-height: 16px; text-align: center; border-radius: 10px; padding: 0 4px; }
+  .bottom-nav .bn-badge:empty { display: none; }
+
+  @media (max-width: 760px) {
+    input[type=text], input[type=number], input[type=date], input[type=time], textarea, select { font-size: 16px; }
+    .sidebar { display: none; }
+    #navToggle { display: none; }
+    .app, .app.nav-collapsed { grid-template-columns: 1fr; }
+    .bottom-nav { display: flex; }
+    .mobile-only { display: grid; }
+    .main { padding: 16px 15px 100px; }
+    .topbar { position: sticky; top: 0; z-index: 20; background: var(--ground); padding: 14px 0 12px; margin-bottom: 16px; }
+    .page-title { font-size: 21px; }
+    .page-sub { font-size: 13px; }
+    .btn { padding: 12px 18px; }
+    .form { gap: 14px; }
+    .fsec { padding: 18px 16px; }
+    .form-actions { bottom: 84px; background: linear-gradient(to top, var(--ground) 62%, transparent); padding: 14px 0 10px; }
+    .form-actions .btn { flex: 1; justify-content: center; }
+    .rc-actions { flex-direction: row; flex-wrap: wrap; }
+    .rc-actions .btn, .rc-actions a.btn { flex: 1; justify-content: center; }
+    .saved-toolbar select { width: 100%; }
+    .modal-bg { padding: 0; align-items: flex-end; }
+    .modal { border-radius: 16px 16px 0 0; max-height: 92vh; overflow-y: auto; }
+  }
   @media print {
     .sidebar, .topbar-actions, .modal-foot, .modal-head .icon-btn { display: none !important; }
   }
@@ -337,6 +375,9 @@
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
           <b id="todayDate">—</b>
         </div>
+        <button class="icon-btn mobile-only" id="themeBtnTop" title="สลับธีม" aria-label="สลับธีม" style="width:40px;height:40px;">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+        </button>
       </div>
     </div>
 
@@ -506,6 +547,22 @@
     <section class="view" id="view-settings"></section>
     <section class="view" id="view-help"></section>
   </main>
+
+  <nav class="bottom-nav" aria-label="เมนูหลัก">
+    <button data-view="daily">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h6M9 17h4"/></svg>
+      <span>รายงาน</span>
+    </button>
+    <button data-view="saved">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <span>บันทึกแล้ว</span>
+      <span class="bn-badge" id="bnSavedCount"></span>
+    </button>
+    <button data-view="others">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      <span>อื่นๆ</span>
+    </button>
+  </nav>
 </div>
 
 <!-- report detail modal -->
@@ -964,6 +1021,7 @@
       return true;
     });
     $("#savedCount").textContent = savedAll.length;
+    if ($("#bnSavedCount")) $("#bnSavedCount").textContent = savedAll.length ? savedAll.length : "";
     var note = $("#resultsNote");
     if (note) note.textContent = (q || period !== "all")
       ? "พบ " + filtered.length + " รายการ จากทั้งหมด " + savedAll.length
@@ -1181,7 +1239,7 @@
     settings: ["ตั้งค่าระบบ", "การกำหนดค่าและข้อมูลทีม"],
     help: ["ศูนย์ช่วยเหลือ", "วิธีใช้งานระบบ"]
   };
-  var navBtns = $$(".nav button");
+  var navBtns = $$(".nav button, .bottom-nav button");
   function go(view) {
     var v = $("#view-" + view); if (!v) { view = "daily"; v = $("#view-daily"); }
     $$(".view").forEach(function (el) { el.classList.remove("active"); });
@@ -1208,13 +1266,15 @@
   /* ---------- theme ---------- */
   var root = document.documentElement;
   try { var st = localStorage.getItem("saiyai_theme"); if (st) root.setAttribute("data-theme", st); } catch (e) {}
-  $("#themeBtn").addEventListener("click", function () {
+  function toggleTheme() {
     var cur = root.getAttribute("data-theme");
     var isDark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
     var next = isDark ? "light" : "dark";
     root.setAttribute("data-theme", next);
     try { localStorage.setItem("saiyai_theme", next); } catch (e) {}
-  });
+  }
+  $("#themeBtn").addEventListener("click", toggleTheme);
+  if ($("#themeBtnTop")) $("#themeBtnTop").addEventListener("click", toggleTheme);
 
   /* ---------- search & filter ---------- */
   if ($("#searchInput")) $("#searchInput").addEventListener("input", applyFilters);
