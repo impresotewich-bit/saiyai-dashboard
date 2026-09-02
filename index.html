@@ -763,10 +763,7 @@
       totPhotos += (r.workCount != null ? r.workCount : (r.workImages || []).length) + (r.removeCount != null ? r.removeCount : (r.removeImages || []).length);
     });
     var kpis = [
-      { label: "รายงานทั้งหมด", v: list.length, u: "งาน", c: "var(--accent)" },
-      { label: "หัวต่อรวม", v: totConn, u: "จุด", c: "var(--good)" },
-      { label: "ความยาวสายรวม", v: totMeters.toLocaleString(), u: "M.", c: "var(--warn)" },
-      { label: "รูปภาพทั้งหมด", v: totPhotos, u: "รูป", c: "var(--accent-deep)" }
+      { label: "รายงานทั้งหมด", v: list.length, u: "งาน", c: "var(--accent)" }
     ];
     $("#savedKpi").innerHTML = kpis.map(function (k) {
       return '<div class="card kpi"><div class="kpi-head"><span class="kpi-dot" style="background:' + k.c + '"></span>' + k.label + '</div>' +
