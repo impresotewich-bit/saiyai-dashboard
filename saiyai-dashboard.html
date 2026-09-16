@@ -410,6 +410,20 @@
               <input type="text" name="jobName" placeholder="เช่น ซอยลาดพร้าว 15 / ชุมสาย XYZ"></div>
           </div>
           <div class="grid2" style="margin-top:14px;">
+            <div class="field"><label>ประเภทงาน</label>
+              <select name="jobType" id="jobType">
+                <option value="">— เลือกประเภทงาน —</option>
+                <option value="Link Down">Link Down</option>
+                <option value="Reroute">Reroute</option>
+                <option value="แก้ Loss">แก้ Loss</option>
+                <option value="Interrube">Interrube</option>
+                <option value="อื่นๆ">อื่นๆ</option>
+              </select>
+            </div>
+            <div class="field" id="jobTypeOtherField" hidden><label>ระบุประเภทงาน</label>
+              <input type="text" name="jobTypeOther" placeholder="ระบุประเภทงาน"></div>
+          </div>
+          <div class="grid2" style="margin-top:14px;">
             <div class="field"><label>วันที่</label>
               <input type="date" name="jobDate"></div>
             <div class="field"><label>เวลา (24 ชม.)</label>
@@ -786,6 +800,15 @@
   }
   if ($("#urgentOnly")) $("#urgentOnly").addEventListener("change", applyUrgentUI);
 
+  /* ---------- job type ---------- */
+  function applyJobTypeUI() {
+    var sel = $("#jobType");
+    var other = sel && sel.value === "อื่นๆ";
+    var f = $("#jobTypeOtherField"); if (f) f.hidden = !other;
+  }
+  if ($("#jobType")) $("#jobType").addEventListener("change", applyJobTypeUI);
+  function jobTypeLabel(r) { return r.jobType === "อื่นๆ" ? (r.jobTypeOther || "อื่นๆ") : (r.jobType || ""); }
+
   /* ---------- collect + save ---------- */
   function readRows(box, type) {
     return $$(".row-item", box).map(function (el) {
@@ -805,6 +828,7 @@
     var urgent = $("#urgentOnly") && $("#urgentOnly").checked;
     var base = {
       jobCode: fval("jobCode"), jobName: fval("jobName"),
+      jobType: fval("jobType"), jobTypeOther: fval("jobTypeOther"),
       jobDate: fval("jobDate"), jobTime: jobTimeValue(),
       urgentOnly: !!urgent,
       connectors: [], cables: [], loops: [],
@@ -846,7 +870,9 @@
 
   /* ---------- edit ---------- */
   var FIELD_LABELS = [
-    ["jobCode", "รหัสเลขงาน"], ["jobName", "สถานที่ปฏิบัติงาน"], ["jobDate", "วันที่"], ["jobTime", "เวลา"],
+    ["jobCode", "รหัสเลขงาน"], ["jobName", "สถานที่ปฏิบัติงาน"],
+    ["jobType", "ประเภทงาน"], ["jobTypeOther", "ระบุประเภทงาน"],
+    ["jobDate", "วันที่"], ["jobTime", "เวลา"],
     ["urgentOnly", "เบิกเฉพาะค่าเร่งด่วน"],
     ["spliceOfc", "จุดตัดต่อ OFC"], ["splicePoints", "จำนวนจุดตัดต่อ"],
     ["removeCable", "การรื้อสายกลับ"], ["removeDetail", "เส้นที่รื้อกลับ"], ["detail", "รายละเอียดการทำงาน"]
@@ -879,6 +905,7 @@
     editingOriginal = JSON.parse(JSON.stringify(rep));
     function set(name, v) { var el = $('[name="' + name + '"]'); if (el) el.value = v || ""; }
     set("jobCode", rep.jobCode); set("jobName", rep.jobName); set("jobDate", rep.jobDate); setJobTime(rep.jobTime);
+    set("jobType", rep.jobType); set("jobTypeOther", rep.jobTypeOther); applyJobTypeUI();
     set("spliceOfc", rep.spliceOfc); set("splicePoints", rep.splicePoints); set("detail", rep.detail); set("removeDetail", rep.removeDetail);
     var yes = rep.removeCable === "yes";
     $$('input[name="removeCable"]').forEach(function (r) { r.checked = (r.value === (yes ? "yes" : "none")); });
@@ -926,7 +953,8 @@
   function uploadEdit(rep) {
     markSyncing(rep.id, true);
     var payload = {
-      id: rep.id, jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
+      id: rep.id, jobCode: rep.jobCode, jobName: rep.jobName, jobType: rep.jobType, jobTypeOther: rep.jobTypeOther,
+      jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
       urgentOnly: rep.urgentOnly,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
@@ -953,7 +981,8 @@
     markSyncing(id, true);
     var payload = {
       id: rep.id,
-      jobCode: rep.jobCode, jobName: rep.jobName, jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
+      jobCode: rep.jobCode, jobName: rep.jobName, jobType: rep.jobType, jobTypeOther: rep.jobTypeOther,
+      jobDate: rep.jobDate, jobTime: rep.jobTime, created: rep.created,
       urgentOnly: rep.urgentOnly,
       connectors: rep.connectors, cables: rep.cables, loops: rep.loops,
       spliceOfc: rep.spliceOfc, splicePoints: rep.splicePoints,
@@ -987,6 +1016,7 @@
     $$("#removeChoice label").forEach(function (l, i) { l.classList.toggle("sel", i === 0); });
     $("#removeCond").classList.remove("show");
     applyUrgentUI();
+    applyJobTypeUI();
   }
   $("#clearBtn").addEventListener("click", function () { if (confirm("ล้างข้อมูลในฟอร์มทั้งหมด?")) resetForm(); });
 
@@ -1035,7 +1065,7 @@
     return true;
   }
   function searchText(r) {
-    var parts = [r.jobCode, r.jobName, r.detail, r.removeDetail, r.jobDate, r.jobTime];
+    var parts = [r.jobCode, r.jobName, r.jobType, r.jobTypeOther, r.detail, r.removeDetail, r.jobDate, r.jobTime];
     (r.connectors || []).forEach(function (c) { parts.push(c.name, c.coord); });
     (r.cables || []).forEach(function (c) { parts.push(c.drum, c.ml, c.ofc); });
     return parts.filter(Boolean).join(" ").toLowerCase();
@@ -1094,6 +1124,7 @@
         : (r.synced ? '<span class="chip" style="color:var(--good);border-color:var(--good)">☁ ซิงค์แล้ว</span>'
                     : '<span class="chip" style="color:var(--ink-faint)">◌ ยังไม่ซิงค์</span>');
       stats.unshift(syncChip);
+      if (jobTypeLabel(r)) stats.unshift('<span class="chip" style="color:var(--accent-deep);border-color:var(--accent)">' + esc(jobTypeLabel(r)) + '</span>');
       if (r.urgentOnly) stats.unshift('<span class="chip" style="color:var(--warn);border-color:var(--warn)">⚡ เร่งด่วน</span>');
       if (r.editLog && r.editLog.length) stats.push('<span class="chip" style="color:var(--warn);border-color:var(--warn)">🖊 แก้ไข ' + r.editLog.length + ' ครั้ง</span>');
 
@@ -1155,6 +1186,7 @@
     var b = "";
     b += line("รหัสเลขงาน", esc(r.jobCode || "—"));
     b += line("สถานที่ปฏิบัติงาน", esc(r.jobName || "—"));
+    if (jobTypeLabel(r)) b += line("ประเภทงาน", esc(jobTypeLabel(r)));
     if (r.jobDate || r.jobTime) b += line("วันที่ / เวลา", fmtJobDate(r.jobDate) + (r.jobTime ? " · " + esc(r.jobTime) + " น." : ""));
     if (r.urgentOnly) b += line("ประเภท", '<b style="color:var(--warn)">⚡ เบิกเฉพาะค่าเร่งด่วน</b>');
     b += line("วันที่บันทึก", fmtDateTime(new Date(r.created)));

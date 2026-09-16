@@ -113,7 +113,8 @@ function handleDelete(data) {
 // สรุปงาน (ไม่รวมรูป base64) สำหรับเก็บลงดัชนี
 function summaryEntry(d, folder) {
   return {
-    jobCode: d.jobCode || "", jobName: d.jobName || "", jobDate: d.jobDate || "", jobTime: d.jobTime || "", created: d.created || new Date().toISOString(),
+    jobCode: d.jobCode || "", jobName: d.jobName || "", jobType: d.jobType || "", jobTypeOther: d.jobTypeOther || "",
+    jobDate: d.jobDate || "", jobTime: d.jobTime || "", created: d.created || new Date().toISOString(),
     urgentOnly: !!d.urgentOnly,
     folderId: folder.getId(), folderUrl: folder.getUrl(),
     connectors: d.connectors || [], cables: d.cables || [], loops: d.loops || [],
@@ -183,6 +184,8 @@ function buildSummary(d) {
   L.push("รายงานการทำงาน — Saiyai");
   L.push("=======================================");
   L.push("รหัสเลขงาน : " + (d.jobCode || "-"));
+  var jt = d.jobType === "อื่นๆ" ? (d.jobTypeOther || "อื่นๆ") : (d.jobType || "-");
+  L.push("ประเภทงาน : " + jt);
   L.push("สถานที่ปฏิบัติงาน     : " + (d.jobName || "-"));
   L.push("วันที่/เวลา : " + (d.jobDate || "-") + (d.jobTime ? " " + d.jobTime + " น." : ""));
   if (d.urgentOnly) L.push("ประเภท : *** เบิกเฉพาะค่าเร่งด่วน ***");
